@@ -36,6 +36,9 @@ License
 #include "DynamicList.H"
 #include "globalMeshData.H"
 
+#include "sliceMeshHelper.H"
+#include "sliceWritePrimitives.H"
+
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 defineTypeNameAndDebug(Foam::domainDecomposition, 0);
@@ -86,6 +89,162 @@ Foam::domainDecomposition::~domainDecomposition()
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+Foam::autoPtr<Foam::fvMesh> Foam::domainDecomposition::parallelMesh
+(
+    const Time& processorDb,
+    const word& regionName
+)
+{
+    // Create cell lookup
+    coherentCellAddressing_.resize(mesh_.nCells(), -1);
+
+    label start = 0;
+    label gCellI = 0;
+    labelList partitionStarts( procCellAddressing_.size() + 1 );
+    for (label procI = 0; procI < nProcs_; procI++) {
+        const labelList& curCellLabels = procCellAddressing_[procI];
+        // Fill partitionStarts
+        partitionStarts[ procI ] = start;
+        start += curCellLabels.size();
+        partitionStarts[ procI+1 ] = start;
+        // Fill the permutation from new to old cell numbering
+        forAll (curCellLabels, cellI) {
+            coherentCellAddressing_[curCellLabels[cellI]] = gCellI;
+            ++gCellI;
+        }
+    }
+    auto path = mesh_.pointsInstance()/mesh_.meshDir();
+    sliceWritePrimitives
+    (
+        "mesh",
+        path,
+        "partitionStarts",
+        partitionStarts.size(),
+        partitionStarts.cdata()
+    );
+
+    // Get complete owner-neighour addressing in the mesh
+    const labelList& own = mesh_.faceOwner();
+    const labelList& nei = mesh_.faceNeighbour();
+
+    labelList procOwner(own.size(), -1);
+    labelList procNeighbour(nei.size(), -1);
+    coherentFaceAddressing_.resize(own.size(), 0);
+    faceList procFaces = mesh_.allFaces();
+
+    // Packaging mesh data to apply permutations
+    std::vector
+    <
+        std::tuple<label, label, label, face>
+    >
+    owner_neighbour_face(nei.size());
+    #pragma omp parallel for
+    for (Foam::label faceI = 0; faceI < nei.size(); ++faceI)
+    {
+        auto ownCellId = own[faceI];
+        auto neiCellId = nei[faceI];
+        auto owner = coherentCellAddressing_[ownCellId];
+        auto neighbour = coherentCellAddressing_[neiCellId];
+        auto face = procFaces[faceI];
+        if ( owner > neighbour )
+        {
+            std::swap(owner, neighbour);
+            face = face.reverseFace();
+        }
+        owner_neighbour_face[faceI] =
+            std::make_tuple
+            (
+                owner,
+                neighbour,
+                faceI,
+                face
+            );
+         procNeighbour[faceI] = neighbour;
+    }
+
+    labelList indices(procNeighbour.size());
+    permutationOfSorted(indices.begin(), indices.end(), procNeighbour);
+    applyPermutation(owner_neighbour_face, indices);
+
+    #pragma omp parallel for
+    for (Foam::label faceI = 0; faceI < owner_neighbour_face.size(); ++faceI)
+    {
+        procOwner[faceI] = std::get<0>
+        (
+            std::move(owner_neighbour_face[faceI])
+        );
+        procNeighbour[faceI] = std::get<1>
+        (
+            std::move(owner_neighbour_face[faceI])
+        );
+        coherentFaceAddressing_[faceI] = std::get<2>
+        (
+            std::move(owner_neighbour_face[faceI])
+        );
+        procFaces[faceI] = std::get<3>
+        (
+            std::move(owner_neighbour_face[faceI])
+        );
+    }
+
+    // Filling owners for patch faces
+    #pragma omp parallel for
+    for (Foam::label faceI = nei.size(); faceI < own.size(); ++faceI)
+    {
+        auto cellId = own[faceI];
+        procOwner[faceI] = coherentCellAddressing_[cellId];
+    }
+
+    // Filling face IDs for patch faces
+    std::iota
+    (
+        coherentFaceAddressing_.begin() + procNeighbour.size(),
+        coherentFaceAddressing_.end(),
+        procNeighbour.size()
+    );
+
+    // Create processor mesh without a boundary
+    pointField procPoints = mesh_.allPoints();
+    autoPtr<fvMesh> procMeshPtr
+    (
+        new fvMesh
+        (
+            IOobject
+            (
+                regionName,
+                mesh_.pointsInstance(),
+                processorDb
+            ),
+            xferMove(procPoints),
+            xferMove(procFaces),
+            xferMove(procOwner),
+            xferMove(procNeighbour),
+            false          // Do not sync par
+        )
+    );
+    fvMesh& procMesh = procMeshPtr();
+
+    const polyPatchList& meshPatches = mesh_.boundaryMesh();
+    List<polyPatch*> procPatches( meshPatches.size(), nullptr );
+    forAll ( meshPatches, patchi )
+    {
+        procPatches[patchi] =
+            meshPatches[patchi].clone
+            (
+                procMesh.boundaryMesh()
+            ).ptr();
+    }
+    procMesh.addFvPatches( procPatches, false );
+    procMesh.write();
+
+    // TODO: Remove or insert as desired
+    //procMesh.checkMesh( true );
+    // REMOVED: "Create processor boundary patches"
+    // Because will be identified through extended neighbour list while reading.
+
+    return procMeshPtr;
+}
 
 Foam::autoPtr<Foam::fvMesh> Foam::domainDecomposition::processorMesh
 (
@@ -530,6 +689,21 @@ bool Foam::domainDecomposition::writeDecomposition()
 {
     Info<< "\nConstructing processor meshes" << endl;
 
+    if ( mesh_.time().writeFormat() == IOstream::COHERENT ) {
+        Time myDb
+        (
+            Time::controlDictName,
+            mesh_.time().rootPath(),
+            mesh_.time().caseName(),
+            "system",
+            "constant",
+            true
+        );
+
+        parallelMesh( myDb, mesh_.polyMesh::name() );
+
+    } else {
+
     // Make a lookup map for globally shared points
     Map<label> sharedPointLookup(2*globallySharedPoints_.size());
 
@@ -577,185 +751,186 @@ bool Foam::domainDecomposition::writeDecomposition()
         labelField(mesh_.nPoints(), 0)
     );
 
-
-    // Write out the meshes
-    for (label procI = 0; procI < nProcs_; procI++)
-    {
-        fileName processorCasePath
-        (
-            mesh_.time().caseName()/fileName(word("processor") + name(procI))
-        );
-
-        // make the processor directory
-        mkDir(mesh_.time().rootPath()/processorCasePath);
-
-        // create a database
-        Time processorDb
-        (
-            Time::controlDictName,
-            mesh_.time().rootPath(),
-            processorCasePath,
-            "system",
-            "constant",
-            true
-        );
-
-        // Set the precision of the points data to 10
-        IOstream::defaultPrecision(10);
-
-        autoPtr<fvMesh> procMeshPtr = processorMesh
-        (
-            procI,
-            processorDb,
-            mesh_.polyMesh::name()     // region name of undecomposed mesh
-        );
-        fvMesh& procMesh = procMeshPtr();
-
-        procMesh.write();
-
-        Info<< endl
-            << "Processor " << procI << nl
-            << "    Number of cells = " << procMesh.nCells()
-            << endl;
-
-        label nBoundaryFaces = 0;
-        label nProcPatches = 0;
-        label nProcFaces = 0;
-
-        forAll (procMesh.boundaryMesh(), patchi)
+        // Write out the meshes
+        for (label procI = 0; procI < nProcs_; procI++)
         {
-            if
+            fileName processorCasePath
             (
-                procMesh.boundaryMesh()[patchi].type()
-             == processorPolyPatch::typeName
-            )
+                mesh_.time().caseName()/fileName(word("processor") + name(procI))
+            );
+
+            // make the processor directory
+            mkDir(mesh_.time().rootPath()/processorCasePath);
+
+            // create a database
+            Time processorDb
+            (
+                Time::controlDictName,
+                mesh_.time().rootPath(),
+                processorCasePath,
+                "system",
+                "constant",
+                true
+            );
+
+            // Set the precision of the points data to 10
+            IOstream::defaultPrecision(10);
+
+            autoPtr<fvMesh> procMeshPtr = processorMesh
+            (
+                procI,
+                processorDb,
+                mesh_.polyMesh::name()     // region name of undecomposed mesh
+            );
+            fvMesh& procMesh = procMeshPtr();
+
+            procMesh.write();
+
+            Info<< endl
+                << "Processor " << procI << nl
+                << "    Number of cells = " << procMesh.nCells()
+                << endl;
+
+            label nBoundaryFaces = 0;
+            label nProcPatches = 0;
+            label nProcFaces = 0;
+
+            forAll (procMesh.boundaryMesh(), patchi)
             {
-                const processorPolyPatch& ppp =
-                refCast<const processorPolyPatch>
+                if
                 (
-                    procMesh.boundaryMesh()[patchi]
-                );
+                    procMesh.boundaryMesh()[patchi].type()
+                 == processorPolyPatch::typeName
+                )
+                {
+                    const processorPolyPatch& ppp =
+                    refCast<const processorPolyPatch>
+                    (
+                        procMesh.boundaryMesh()[patchi]
+                    );
 
-                Info<< "    Number of faces shared with processor "
-                    << ppp.neighbProcNo() << " = " << ppp.size() << endl;
+                    Info<< "    Number of faces shared with processor "
+                        << ppp.neighbProcNo() << " = " << ppp.size() << endl;
 
-                nProcPatches++;
-                nProcFaces += ppp.size();
+                    nProcPatches++;
+                    nProcFaces += ppp.size();
+                }
+                else
+                {
+                    nBoundaryFaces += procMesh.boundaryMesh()[patchi].size();
+                }
             }
-            else
-            {
-                nBoundaryFaces += procMesh.boundaryMesh()[patchi].size();
-            }
+
+            Info<< "    Number of processor patches = " << nProcPatches << nl
+                << "    Number of processor faces = " << nProcFaces << nl
+                << "    Number of boundary faces = " << nBoundaryFaces << endl;
+
+            totProcFaces += nProcFaces;
+            maxProcPatches = max(maxProcPatches, nProcPatches);
+            maxProcFaces = max(maxProcFaces, nProcFaces);
+
+            // create and write the addressing information
+            labelIOList pointProcAddressing
+            (
+                IOobject
+                (
+                    "pointProcAddressing",
+                    procMesh.facesInstance(),
+                    procMesh.meshSubDir,
+                    procMesh,
+                    IOobject::NO_READ,
+                    IOobject::NO_WRITE
+                ),
+                procPointAddressing_[procI]
+            );
+            pointProcAddressing.write();
+
+            labelIOList faceProcAddressing
+            (
+                IOobject
+                (
+                    "faceProcAddressing",
+                    procMesh.facesInstance(),
+                    procMesh.meshSubDir,
+                    procMesh,
+                    IOobject::NO_READ,
+                    IOobject::NO_WRITE
+                ),
+                procFaceAddressing_[procI]
+            );
+            faceProcAddressing.write();
+
+            labelIOList cellProcAddressing
+            (
+                IOobject
+                (
+                    "cellProcAddressing",
+                    procMesh.facesInstance(),
+                    procMesh.meshSubDir,
+                    procMesh,
+                    IOobject::NO_READ,
+                    IOobject::NO_WRITE
+                ),
+                procCellAddressing_[procI]
+            );
+            cellProcAddressing.write();
+
+            labelIOList boundaryProcAddressing
+            (
+                IOobject
+                (
+                    "boundaryProcAddressing",
+                    procMesh.facesInstance(),
+                    procMesh.meshSubDir,
+                    procMesh,
+                    IOobject::NO_READ,
+                    IOobject::NO_WRITE
+                ),
+                procBoundaryAddressing_[procI]
+            );
+            boundaryProcAddressing.write();
+
+            // Create and write cellLevel and pointLevel information
+            const unallocLabelList& cellMap = cellProcAddressing;
+            labelIOField procCellLevel
+            (
+                IOobject
+                (
+                    "cellLevel",
+                    procMesh.facesInstance(),
+                    procMesh.meshSubDir,
+                    procMesh,
+                    IOobject::NO_READ,
+                    IOobject::NO_WRITE
+                ),
+                labelField(globalCellLevel, cellMap)
+            );
+            procCellLevel.write();
+
+            const unallocLabelList& pointMap = pointProcAddressing;
+            labelIOField procPointLevel
+            (
+                IOobject
+                (
+                    "pointLevel",
+                    procMesh.facesInstance(),
+                    procMesh.meshSubDir,
+                    procMesh,
+                    IOobject::NO_READ,
+                    IOobject::NO_WRITE
+                ),
+                labelField(globalPointLevel, pointMap)
+            );
+            procPointLevel.write();
         }
-
-        Info<< "    Number of processor patches = " << nProcPatches << nl
-            << "    Number of processor faces = " << nProcFaces << nl
-            << "    Number of boundary faces = " << nBoundaryFaces << endl;
-
-        totProcFaces += nProcFaces;
-        maxProcPatches = max(maxProcPatches, nProcPatches);
-        maxProcFaces = max(maxProcFaces, nProcFaces);
-
-        // create and write the addressing information
-        labelIOList pointProcAddressing
-        (
-            IOobject
-            (
-                "pointProcAddressing",
-                procMesh.facesInstance(),
-                procMesh.meshSubDir,
-                procMesh,
-                IOobject::NO_READ,
-                IOobject::NO_WRITE
-            ),
-            procPointAddressing_[procI]
-        );
-        pointProcAddressing.write();
-
-        labelIOList faceProcAddressing
-        (
-            IOobject
-            (
-                "faceProcAddressing",
-                procMesh.facesInstance(),
-                procMesh.meshSubDir,
-                procMesh,
-                IOobject::NO_READ,
-                IOobject::NO_WRITE
-            ),
-            procFaceAddressing_[procI]
-        );
-        faceProcAddressing.write();
-
-        labelIOList cellProcAddressing
-        (
-            IOobject
-            (
-                "cellProcAddressing",
-                procMesh.facesInstance(),
-                procMesh.meshSubDir,
-                procMesh,
-                IOobject::NO_READ,
-                IOobject::NO_WRITE
-            ),
-            procCellAddressing_[procI]
-        );
-        cellProcAddressing.write();
-
-        labelIOList boundaryProcAddressing
-        (
-            IOobject
-            (
-                "boundaryProcAddressing",
-                procMesh.facesInstance(),
-                procMesh.meshSubDir,
-                procMesh,
-                IOobject::NO_READ,
-                IOobject::NO_WRITE
-            ),
-            procBoundaryAddressing_[procI]
-        );
-        boundaryProcAddressing.write();
-
-        // Create and write cellLevel and pointLevel information
-        const unallocLabelList& cellMap = cellProcAddressing;
-        labelIOField procCellLevel
-        (
-            IOobject
-            (
-                "cellLevel",
-                procMesh.facesInstance(),
-                procMesh.meshSubDir,
-                procMesh,
-                IOobject::NO_READ,
-                IOobject::NO_WRITE
-            ),
-            labelField(globalCellLevel, cellMap)
-        );
-        procCellLevel.write();
-
-        const unallocLabelList& pointMap = pointProcAddressing;
-        labelIOField procPointLevel
-        (
-            IOobject
-            (
-                "pointLevel",
-                procMesh.facesInstance(),
-                procMesh.meshSubDir,
-                procMesh,
-                IOobject::NO_READ,
-                IOobject::NO_WRITE
-            ),
-            labelField(globalPointLevel, pointMap)
-        );
-        procPointLevel.write();
-    }
 
     Info<< nl
         << "Number of processor faces = " << totProcFaces/2 << nl
         << "Max number of processor patches = " << maxProcPatches << nl
         << "Max number of faces between processors = " << maxProcFaces
         << endl;
+
+    }
 
     return true;
 }

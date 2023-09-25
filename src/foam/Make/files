@@ -1,6 +1,7 @@
 global/global.Cver
 global/dimensionedConstants/dimensionedConstants.C
 global/argList/argList.C
+global/argList/parRun.C
 global/clock/clock.C
 
 global/controlSwitches/debugSwitch.C
@@ -99,6 +100,9 @@ coordinateSystems/coordinateRotation/axisCoordinateRotation.C
 
 primitives/random/Random.C
 
+containers/Lists/UList/DebugIOUList.C
+containers/Lists/List/DebugIOList.C
+
 containers/HashTables/HashTable/HashTableCore.C
 containers/HashTables/StaticHashTable/StaticHashTableCore.C
 containers/Lists/ListOps/ListOps.C
@@ -126,6 +130,7 @@ $(Streams)/token/tokenIO.C
 
 IOstreams = $(Streams)/IOstreams
 $(IOstreams)/IOstream.C
+$(IOstreams)/IOstreamOption.C
 $(IOstreams)/Istream.C
 $(IOstreams)/Ostream.C
 
@@ -609,11 +614,16 @@ $(meshTools)/meshTools.C
 $(meshTools)/matchPoints.C
 $(meshTools)/mergePoints.C
 
+fields/DimensionedFields/DimensionedField/DebugIODimensionedField.C
+
 fields/UniformDimensionedFields/uniformDimensionedFields.C
 fields/cloud/cloud.C
 fields/cloudDistribute/cloudDistribute.C
 
 Fields = fields/Fields
+
+$(Fields)/Field/DebugIOField.C
+
 $(Fields)/labelField/labelField.C
 $(Fields)/scalarField/scalarField.C
 $(Fields)/vectorField/vectorField.C

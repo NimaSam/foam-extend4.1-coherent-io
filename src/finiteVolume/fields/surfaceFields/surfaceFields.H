@@ -45,6 +45,67 @@ SourceFiles
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+namespace Foam
+{
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+template<>
+label IFCstream::coherentFieldSize<fvsPatchField, surfaceMesh>();
+
+template<class Type>
+class IFCstream::reader<Type, fvsPatchField, surfaceMesh>
+{
+
+public:
+
+    static void read(IFCstream&);
+};
+
+template<class Type>
+class OFCstream<Type, fvsPatchField, surfaceMesh>
+:
+public OFCstreamBase
+{
+
+    // Private data
+
+        //- Internal field of the coherent format with processor patch fields
+        //  mapped into it
+        List<Type> consolidatedData_;
+
+
+    // Private member functions
+
+        void combineCoherentInternal();
+
+
+public:
+
+    //- Constructor
+    OFCstream
+    (
+        const fileName& pathname,
+        const objectRegistry& registry,
+        ios_base::openmode mode = ios_base::out|ios_base::trunc,
+        IOstreamOption streamOpt = IOstreamOption()
+    );
+
+
+    //- Destructor
+    virtual ~OFCstream();
+};
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+} // End namespace Foam
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+#include "surfaceFieldsI.H"
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
 #endif
 
 // ************************************************************************* //

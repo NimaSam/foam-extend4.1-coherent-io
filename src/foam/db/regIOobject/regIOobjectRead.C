@@ -27,6 +27,7 @@ License
 #include "IFstream.H"
 #include "objectRegistry.H"
 #include "PstreamReduceOps.H"
+#include <string>
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
@@ -134,6 +135,78 @@ Foam::Istream& Foam::regIOobject::readStream(const word& expectName)
         )
         {
             FatalIOErrorIn("regIOobject::readStream(const word&)", *isPtr_)
+                << "unexpected class name " << headerClassName()
+                << " expected " << expectName << endl
+                << "    while reading object " << name()
+                << exit(FatalIOError);
+        }
+    }
+
+    return *isPtr_;
+}
+
+
+Foam::Istream& Foam::regIOobject::readStreamPar(const word& expectName)
+{
+    const word writeFormat(time().controlDict().lookup("writeFormat"));
+    const bool isCoherentFormat =
+        (IOstream::formatEnum(writeFormat) == IOstream::COHERENT);
+
+    if (!isCoherentFormat)
+    {
+        return readStream(expectName);
+    }
+
+    fileName objPath = objectPath();
+
+    Info<< "Reading from " << objPath << nl
+        << "    via coherent format, since writeFormat is set to '"
+        << writeFormat << "'" << nl
+        << "    and format mixing is not allowed."
+        << endl;
+
+    if (IFstream::debug)
+    {
+        Info<< "regIOobject::readStreamPar(const word&) : "
+            << "reading object " << name()
+            << " from " << objPath
+            << endl;
+    }
+
+    // Construct IFstream if not already constructed
+    if (!isPtr_)
+    {
+        if (!(isPtr_ = objectStreamPar(objPath)))
+        {
+            FatalIOError
+            (
+                "regIOobject::readStreamPar()",
+                __FILE__,
+                __LINE__,
+                objPath,
+                0
+            )   << "cannot open file"
+                << exit(FatalIOError);
+        }
+        else if (!readHeader(*isPtr_))
+        {
+            FatalIOErrorIn("regIOobject::readStreamPar()", *isPtr_)
+                << "problem while reading header for object " << name()
+                << exit(FatalIOError);
+        }
+
+        // Check the className of the regIOobject
+        // dictionary is an allowable name in case the actual class
+        // instantiated is a dictionary
+        if
+        (
+            expectName.size()
+         && headerClassName() != expectName
+         && headerClassName() != dictionary::typeName
+         && headerClassName() != IOdictionary::typeName
+        )
+        {
+            FatalIOErrorIn("regIOobject::readStreamPar(const word&)", *isPtr_)
                 << "unexpected class name " << headerClassName()
                 << " expected " << expectName << endl
                 << "    while reading object " << name()

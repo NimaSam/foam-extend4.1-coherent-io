@@ -40,6 +40,7 @@ SourceFiles
 #include "className.H"
 
 #include <fstream>
+#include <memory>
 using std::ifstream;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -48,6 +49,7 @@ namespace Foam
 {
 
 class IFstream;
+class SliceStream;
 
 /*---------------------------------------------------------------------------*\
                       Class IFstreamAllocator Declaration
@@ -61,17 +63,32 @@ class IFstreamAllocator
     // Private data
 
         istream* ifPtr_;
+
+        //- String serves as buffer for ADIOS variable in case the format is
+        //  COHERENT. It is then assigned to isrteam buffer.
+        std::string bufStr_;
+
+        std::unique_ptr<SliceStream> sliceStreamPtr_;
         IOstream::compressionType compression_;
 
 
     // Constructors
 
         //- Construct from pathname
-        IFstreamAllocator(const fileName& pathname);
+        IFstreamAllocator
+        (
+            const fileName& pathname,
+            const IOstream::streamFormat format
+        );
 
 
     //- Destructor
     ~IFstreamAllocator();
+
+    // Member functions
+
+        //- Allocate ADIOS object if not already present
+        void allocateAdios();
 };
 
 
@@ -87,6 +104,8 @@ class IFstream
     // Private data
 
         fileName pathname_;
+        Istream* tmpIssPtr_;
+        string tmpIssBuf_;
 
 public:
 
@@ -126,6 +145,11 @@ public:
             }
 
 
+        // Read functions
+
+            //- Read binary block from second stream
+            virtual Istream& parread(parIOType*, const string&);
+
         // STL stream
 
             //- Access to underlying std::istream
@@ -140,6 +164,7 @@ public:
             //- Print description of IOstream to Ostream
             virtual void print(Ostream&) const;
 
+            virtual Istream& readToStringStream(string&);
 
     // Member operators
 

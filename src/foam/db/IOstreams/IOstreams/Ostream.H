@@ -39,6 +39,11 @@ SourceFiles
 #include "IOstream.H"
 #include "keyType.H"
 
+#include "className.H"
+#include "uListProxyBase.H"
+
+#include <memory>
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
@@ -67,23 +72,31 @@ protected:
         static const unsigned short entryIndentation_ = 16;
 
         //- Current indent level
-        unsigned short indentLevel_;
+        unsigned short indentLevel_ = 0;
 
 
 public:
 
+    // Declare name of the class and its debug switch
+    ClassName("Ostream");
+
     // Constructors
+
+        //- Default construct
+        Ostream(IOstreamOption streamOpt = IOstreamOption())
+        :
+            IOstream(streamOpt)
+        {}
 
         //- Set stream status
         Ostream
         (
-            streamFormat format = ASCII,
+            streamFormat format,
             versionNumber version = currentVersion,
-            compressionType compression=UNCOMPRESSED
+            compressionType compression = UNCOMPRESSED
         )
         :
-            IOstream(format, version, compression),
-            indentLevel_(0)
+            Ostream(IOstreamOption(format, version, compression))
         {}
 
 
@@ -137,6 +150,11 @@ public:
             //- Write binary block
             virtual Ostream& write(const char*, std::streamsize) = 0;
 
+            //- Write binary block into second stream
+            virtual Ostream& parwrite(std::unique_ptr<uListProxyBase>) = 0;
+
+            virtual Ostream& stringStream() = 0;
+
             //- Add indentation characters
             virtual void indent() = 0;
 
@@ -158,11 +176,30 @@ public:
                 indentLevel_++;
             }
 
+            //- Incrememt the indent level and add new block with name
+            virtual word incrBlock(const word name)
+            {
+                return name;
+            }
+
             //- Decrememt the indent level
-            void decrIndent();
+            virtual void decrIndent();
+
+            //- Decrememt the indent level and close the current block
+            virtual void decrBlock()
+            {}
+
+            //- Get block identifier
+            virtual string getBlockId() const
+            {
+                return "none (called Ostream Member)";
+            }
 
             //- Write the keyword followed by an appropriate indentation
-            Ostream& writeKeyword(const keyType&);
+            virtual Ostream& writeKeyword(const keyType&);
+
+            virtual void popBlockNamesStack()
+            {}
 
 
         // Stream state functions
@@ -232,6 +269,7 @@ inline Ostream& incrIndent(Ostream& os)
     return os;
 }
 
+
 //- Decrement the indent level
 inline Ostream& decrIndent(Ostream& os)
 {
@@ -239,6 +277,13 @@ inline Ostream& decrIndent(Ostream& os)
     return os;
 }
 
+
+//- Decrement the indent level
+inline Ostream& decrBlock(Ostream& os)
+{
+    os.decrBlock();
+    return os;
+}
 
 //- Flush stream
 inline Ostream& flush(Ostream& os)

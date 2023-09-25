@@ -21,67 +21,30 @@ License
     You should have received a copy of the GNU General Public License
     along with foam-extend.  If not, see <http://www.gnu.org/licenses/>.
 
-InClass
-    Foam::volFields
-
-Description
-
-SourceFiles
-    volFields.C
-
 \*---------------------------------------------------------------------------*/
 
-#ifndef volFields_H
-#define volFields_H
+#include "parRun.H"
 
-#include "objectRegistry.H"
-#include "GeometricFields.H"
-#include "volMesh.H"
-#include "fvMesh.H"
-#include "fvPatchFields.H"
-#include "volFieldsFwd.H"
-#include "calculatedFvPatchFields.H"
-#include "fvMatrices.H"
-#include "IFCstream.H"
+#include "SliceStreamRepo.H"
+
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-namespace Foam
+Foam::ParRunControl::~ParRunControl()
 {
+    auto repo = SliceStreamRepo::instance();
+    repo->open();
+    repo->close();
+    if (RunPar)
+    {
+        Info<< "Finalising parallel run" << endl;
+        Pstream::exit(0);
+    }
+}
+
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-template<>
-tmp<GeometricField<scalar, fvPatchField, volMesh> >
-GeometricField<scalar, fvPatchField, volMesh>::component
-(
-    const direction
-) const;
-
-template<>
-void GeometricField<scalar, fvPatchField, volMesh>::replace
-(
-    const direction,
-    const GeometricField<scalar, fvPatchField, volMesh>& sf
-);
-
-template<>
-void IFCstream::addProcessorPatchField<fvPatchField, volMesh>
-(
-    dictionary& bfDict,
-    const word& patchName,
-    const word& fieldTypeName
-);
-
-template<>
-label IFCstream::coherentFieldSize<fvPatchField, volMesh>();
+// End namespace Foam
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-} // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#endif
-
-// ************************************************************************* //

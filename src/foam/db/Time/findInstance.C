@@ -29,8 +29,10 @@ Description
 
 \*---------------------------------------------------------------------------*/
 
+#include "OSspecific.H"
 #include "foamTime.H"
 #include "IOobject.H"
+#include "SliceStreamPaths.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -44,6 +46,11 @@ Foam::word Foam::Time::findInstance
 {
     // Note: if name is empty, just check the directory itself
 
+    SliceStreamPaths paths;
+    if ( paths.meshPresent() )
+    {
+        return constant();
+    }
 
     const fileName tPath(path());
     const fileName dirPath(tPath/timeName()/dir);

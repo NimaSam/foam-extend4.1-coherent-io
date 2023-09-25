@@ -100,7 +100,8 @@ struct is_vectorspace
         decltype(std::declval<T>().operator+=(std::declval<T>())),
         decltype(std::declval<T>().operator-=(std::declval<T>())),
         decltype(std::declval<T>().operator*=(std::declval<scalar>())),
-        decltype(std::declval<T>().operator/=(std::declval<scalar>()))
+        decltype(std::declval<T>().operator/=(std::declval<scalar>())),
+        decltype(T::nComponents) // TODO port: was added because of error from lnInclude/Field.H:46, from lnInclude/labelField.H:39, from lnInclude/lduInterface.H:39, from lnInclude/SAMGInterface.H:42, from matrices/lduMatrix/solvers/AMG/interfaces/SAMGInterfaces/ggiSAMGInterface/ggiSAMGInterface.H
     >
 >
 :

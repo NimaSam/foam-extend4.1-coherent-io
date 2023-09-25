@@ -24,8 +24,32 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "IFstream.H"
+#include "IOstream.H"
 #include "OSspecific.H"
+#include "debug.H"
 #include "gzstream.h"
+#include "SliceStream.H"
+#include "IStringStream.H"
+
+#include <fstream>
+bool readLocalString( std::string& buf,
+                      const Foam::string strName ) {
+
+    //TODO : Parallel implementation. Only master reading and distributing.
+    std::ifstream inFile;
+    inFile.open( "fields/" + strName );
+    bool found = inFile.good();
+    if ( found ) {
+        inFile.seekg(0, std::ios::end);
+        size_t size = inFile.tellg();
+        buf.resize( size );
+        inFile.seekg(0);
+        inFile.read( &buf[0], size );
+        inFile.close();
+    }
+
+    return found;
+}
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -34,9 +58,15 @@ defineTypeNameAndDebug(Foam::IFstream, 0);
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-Foam::IFstreamAllocator::IFstreamAllocator(const fileName& pathname)
+Foam::IFstreamAllocator::IFstreamAllocator
+(
+    const fileName& pathname,
+    IOstream::streamFormat format
+)
 :
     ifPtr_(nullptr),
+    bufStr_(),
+    sliceStreamPtr_(nullptr),
     compression_(IOstream::UNCOMPRESSED)
 {
     if (pathname.empty())
@@ -48,7 +78,34 @@ Foam::IFstreamAllocator::IFstreamAllocator(const fileName& pathname)
         }
     }
 
-    ifPtr_ = new ifstream(pathname.c_str());
+    if (format == IOstream::COHERENT)
+    {
+        ifPtr_ = new std::istringstream();
+
+        if ( !sliceStreamPtr_ )
+        {
+            allocateAdios();
+        }
+
+        // Get state from ADIOS
+        const bool dataFound =
+            readLocalString(bufStr_, pathname.name()); //pathname.caseName(""));
+
+        if (!dataFound)
+        {
+            // Invalidate stream if the variable is not found
+            ifPtr_->setstate(std::ios::failbit);
+        }
+        else
+        {
+            // Assign the buffer of string bufStr_ to the buffer of the stream
+            ifPtr_->rdbuf()->pubsetbuf(&bufStr_[0], bufStr_.size());
+        }
+    }
+    else
+    {
+        ifPtr_ = new ifstream(pathname.c_str());
+    }
 
     // If the file is compressed, decompress it before reading.
     if (!ifPtr_->good() && isFile(pathname + ".gz", false))
@@ -68,12 +125,19 @@ Foam::IFstreamAllocator::IFstreamAllocator(const fileName& pathname)
             compression_ = IOstream::COMPRESSED;
         }
     }
+
 }
 
 
 Foam::IFstreamAllocator::~IFstreamAllocator()
 {
     delete ifPtr_;
+}
+
+
+void Foam::IFstreamAllocator::allocateAdios()
+{
+    sliceStreamPtr_ = SliceReading{}.createStream();
 }
 
 
@@ -86,7 +150,7 @@ Foam::IFstream::IFstream
     versionNumber version
 )
 :
-    IFstreamAllocator(pathname),
+    IFstreamAllocator(pathname, format),
     ISstream
     (
         *ifPtr_,
@@ -95,7 +159,8 @@ Foam::IFstream::IFstream
         version,
         IFstreamAllocator::compression_
     ),
-    pathname_(pathname)
+    pathname_(pathname),
+    tmpIssPtr_(nullptr)
 {
     setClosed();
 
@@ -123,10 +188,15 @@ Foam::IFstream::IFstream
 }
 
 
-// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * Destructors * * * * * * * * * * * * * * * //
 
 Foam::IFstream::~IFstream()
-{}
+{
+    if (tmpIssPtr_)
+    {
+        delete tmpIssPtr_;
+    }
+}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
@@ -139,6 +209,25 @@ std::istream& Foam::IFstream::stdStream()
             << "No stream allocated" << abort(FatalError);
     }
     return *ifPtr_;
+}
+
+
+// read binary block from second stream
+Foam::Istream& Foam::IFstream::parread(parIOType* buf, const string& blockId)
+{
+    if (format() != COHERENT)
+    {
+        FatalIOErrorIn("ISstream::parread(parIOType*, std::streamsize)", *this)
+            << "stream format not parallel"
+            << exit(FatalIOError);
+    }
+
+    if ( !sliceStreamPtr_ )
+    {
+        allocateAdios();
+    }
+
+    return *this;
 }
 
 
@@ -158,6 +247,18 @@ void Foam::IFstream::print(Ostream& os) const
     // Print File data
     os  << "IFstream: ";
     ISstream::print(os);
+}
+
+
+Foam::Istream& Foam::IFstream::readToStringStream(string& id)
+{
+    if (tmpIssPtr_)
+    {
+
+    }
+    readLocalString(tmpIssBuf_, id);
+    tmpIssPtr_ = new IStringStream(tmpIssBuf_);
+    return *tmpIssPtr_;
 }
 
 

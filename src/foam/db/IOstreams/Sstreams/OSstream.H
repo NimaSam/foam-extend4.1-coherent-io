@@ -39,6 +39,10 @@ SourceFiles
 #include "Ostream.H"
 #include "fileName.H"
 #include <iostream>
+#include <memory>
+
+#include "className.H"
+#include "uListProxyBase.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -56,6 +60,7 @@ class OSstream
     // Private data
 
         fileName name_;
+        // FIFOStack<word> blockNamesStack_;
         ostream& os_;
 
 
@@ -82,17 +87,31 @@ protected:
 
 public:
 
+    // Declare name of the class and its debug switch
+    ClassName("OSstream");
+
     // Constructors
+
+        //- Construct using stream option
+        inline OSstream
+        (
+            std::ostream& os,
+            const string& name,
+            IOstreamOption streamOpt = IOstreamOption()
+        );
 
         //- Set stream status
         OSstream
         (
             ostream& os,
             const string& name,
-            streamFormat format = ASCII,
+            streamFormat format,
             versionNumber version = currentVersion,
-            compressionType compression=UNCOMPRESSED
-        );
+            compressionType compression = UNCOMPRESSED
+        )
+        :
+            OSstream(os, name, IOstreamOption(format, version, compression))
+        {}
 
 
     // Member functions
@@ -160,8 +179,16 @@ public:
             //- Write binary block
             virtual Ostream& write(const char*, std::streamsize);
 
+            //- Write binary block into paros_
+            virtual Ostream& parwrite(std::unique_ptr<uListProxyBase>);
+
+            virtual Ostream& stringStream();
+
             //- Add indentation characters
             virtual void indent();
+
+            //- Incrememt the indent level and add new block with name
+            virtual word incrBlock(const word);
 
 
         // Stream state functions

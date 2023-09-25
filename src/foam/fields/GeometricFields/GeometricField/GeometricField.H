@@ -492,8 +492,19 @@ public:
             const direction
         ) const;
 
+        //- Create a file stream and write
+        virtual bool writeToStream
+        (
+            const fileName&,
+            ios_base::openmode,
+            IOstreamOption
+        ) const;
+
         //- WriteData member function required by regIOobject
         bool writeData(Ostream&) const;
+
+        //- Construct an IFCsteam
+        virtual Istream* objectStreamPar(const fileName&);
 
         //- Return transpose (only if it is a tensor field)
         tmp<GeometricField<Type, PatchField, GeoMesh> > T() const;

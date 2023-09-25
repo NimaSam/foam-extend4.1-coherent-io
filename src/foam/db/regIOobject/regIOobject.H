@@ -243,6 +243,8 @@ public:
             //- Return Istream and check object type against that given
             Istream& readStream(const word&);
 
+            Istream& readStreamPar(const word&);
+
             //- Close Istream
             void close();
 
@@ -282,8 +284,29 @@ public:
                 IOstream::compressionType
             ) const;
 
+            //- Write using stream option
+            virtual bool writeObject(IOstreamOption streamOpt) const;
+
             //- Write using setting from DB
             virtual bool write() const;
+
+            //- Write to file stream
+            virtual bool writeToStream
+            (
+                const fileName& pathname,
+                ios_base::openmode mode,
+                IOstream::streamFormat format,
+                IOstream::versionNumber version,
+                IOstream::compressionType compression
+            ) const;
+
+            //- Write to file stream with stream option
+            virtual bool writeToStream
+            (
+                const fileName &pathname,
+                ios_base::openmode mode,
+                IOstreamOption streamOpt
+            ) const;
 
 
     // Member operators

@@ -38,6 +38,7 @@ SourceFiles
 #define OPstream_H
 
 #include "Ostream.H"
+#include "uListProxyBase.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -166,6 +167,11 @@ public:
 
             //- Write binary block
             Ostream& write(const char*, std::streamsize);
+
+            //- Write binary block into second stream
+            virtual Ostream& parwrite(std::unique_ptr<uListProxyBase>);
+
+            Ostream& stringStream();
 
             //- Add indentation characters
             void indent()

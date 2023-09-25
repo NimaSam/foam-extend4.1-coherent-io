@@ -492,6 +492,7 @@ Foam::argList::argList
 )
 :
     parRunControl_(args.parRunControl_),
+    //adiosControl_(args.adiosControl_),
     args_(args.args_),
     options_(options),
     executable_(args.executable_),
@@ -596,11 +597,30 @@ void Foam::argList::parse
     // If this actually is a parallel run
     if (parRunControl_.parRun())
     {
+        bool isCoherentFormat = false;
+
         // For the master
         if (Pstream::master())
         {
             // Establish rootPath_/globalCase_/case_ for master
             getRootCase();
+
+            // Check the IO write format
+            fileName ctrlDictName = rootPath_/globalCase_/"system/controlDict";
+            IFstream controlDictStream(ctrlDictName);
+
+            if (!controlDictStream.good())
+            {
+                FatalError
+                    << "Cannot read "
+                    << controlDictStream.name()
+                    << exit(FatalError);
+            }
+
+            const dictionary controlDict(controlDictStream);
+            const word writeFormat(controlDict.lookup("writeFormat"));
+            isCoherentFormat =
+                (IOstream::formatEnum(writeFormat) == IOstream::COHERENT);
 
             // See if running distributed (different roots for different procs)
             label dictNProcs = -1;
@@ -669,12 +689,28 @@ void Foam::argList::parse
             // - decomposition to fewer processors : nProcs = nProcDirs
             if (dictNProcs > Pstream::nProcs())
             {
-                FatalError
-                    << source
-                    << " specifies " << dictNProcs
-                    << " processors but job was started with "
-                    << Pstream::nProcs() << " processors."
-                    << exit(FatalError);
+                if (isCoherentFormat)
+                {
+                    Warning
+                        << source
+                        << " specifies " << dictNProcs
+                        << " processors but job was started with "
+                        << Pstream::nProcs() << " processors." << nl
+                        << "    " << IOstream::formatEnum(writeFormat)
+                        << " format allows restart with variable number of"
+                        << " processors but the decomposition may not be"
+                        << " optimal."
+                        << endl;
+                }
+                else
+                {
+                    FatalError
+                        << source
+                        << " specifies " << dictNProcs
+                        << " processors but job was started with "
+                        << Pstream::nProcs() << " processors."
+                        << exit(FatalError);
+                }
             }
 
 
@@ -708,7 +744,7 @@ void Foam::argList::parse
                     options_.set("case", roots[slave-1]/globalCase_);
 
                     OPstream toSlave(Pstream::scheduled, slave);
-                    toSlave << args_ << options_;
+                    toSlave << args_ << options_ << isCoherentFormat;
                 }
                 options_.erase("case");
 
@@ -722,7 +758,7 @@ void Foam::argList::parse
             {
                 // Possibly going to fewer processors.
                 // Check if all procDirs are there.
-                if (dictNProcs < Pstream::nProcs())
+                if (!isCoherentFormat && dictNProcs < Pstream::nProcs())
                 {
                     label nProcDirs = 0;
                     while
@@ -755,7 +791,7 @@ void Foam::argList::parse
                 )
                 {
                     OPstream toSlave(Pstream::scheduled, slave);
-                    toSlave << args_ << options_;
+                    toSlave << args_ << options_ << isCoherentFormat;
                 }
             }
         }
@@ -763,14 +799,32 @@ void Foam::argList::parse
         {
             // Collect the master's argument list
             IPstream fromMaster(Pstream::scheduled, Pstream::masterNo());
-            fromMaster >> args_ >> options_;
+            fromMaster >> args_ >> options_ >> isCoherentFormat;
 
             // Establish rootPath_/globalCase_/case_ for slave
             getRootCase();
         }
 
         nProcs = Pstream::nProcs();
-        case_ = globalCase_/(word("processor") + name(Pstream::myProcNo()));
+
+        if (isCoherentFormat)
+        {
+            case_ = globalCase_;
+            if (Pstream::master() && isDir(rootPath_/globalCase_/"processor0"))
+            {
+                WarningInFunction
+                    << "The I/O is set to the coherent format (writeFormat in"
+                    << " controlDict) but 'processor0' directory is present"
+                    << " indicating usage of a conventional I/O format."
+                    << " Note that the coherent format does not use"
+                    << " 'processor' directories."
+                    << nl << endl;
+            }
+        }
+        else
+        {
+            case_ = globalCase_/(word("processor") + name(Pstream::myProcNo()));
+        }
     }
     else
     {
@@ -1299,6 +1353,7 @@ bool Foam::argList::checkRootCase() const
         return false;
     }
 
+    /* Disabled this check to allow restarts from TARs
     if (!isDir(path()) && Pstream::master())
     {
         // Allow slaves on non-existing processor directories, created later
@@ -1309,6 +1364,7 @@ bool Foam::argList::checkRootCase() const
 
         return false;
     }
+    */
 
     return true;
 }

@@ -27,6 +27,8 @@ License
 #include "foamTime.H"
 #include "demandDrivenData.H"
 #include "dictionary.H"
+#include "OFCstream.H"
+#include "IFCstream.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -56,6 +58,14 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::readField
     const dictionary& fieldDict
 )
 {
+    if (debug)
+    {
+        Info<< "Foam::GeometricField<Type, PatchField, GeoMesh>"
+            << "::readField(const dictionary& fieldDict)"
+            << "\n dict =\n" << fieldDict << nl
+            << endl;
+    }
+
     DimensionedField<Type, GeoMesh>::readField(fieldDict, "internalField");
 
     tmp<GeometricBoundaryField> tboundaryField
@@ -94,6 +104,13 @@ Foam::tmp
 >
 Foam::GeometricField<Type, PatchField, GeoMesh>::readField(Istream& is)
 {
+    if (debug)
+    {
+        Info<< "Foam::GeometricField<Type, PatchField, GeoMesh>"
+            << "::readField(Istream& is) with stream format " << is.format()
+            << endl;
+    }
+
     if (is.version() < 2.0)
     {
         FatalIOErrorIn
@@ -104,7 +121,26 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::readField(Istream& is)
             << exit(FatalIOError);
     }
 
-    return readField(dictionary(is));
+    if (is.format() == IOstream::COHERENT)
+    {
+        if (!isA<IFCstream>(is))
+        {
+            FatalErrorInFunction
+                << "Stream is set to IO Format COHERENT but " << is.name()
+                << " is initialized with a different format"
+                << exit(FatalError);
+        }
+
+        IFCstream& ifc = dynamic_cast<IFCstream&>(is);
+        return readField
+        (
+            ifc.readToDict<Type, PatchField, GeoMesh>()
+        );
+    }
+    else
+    {
+        return readField(dictionary(is));
+    }
 }
 
 
@@ -120,9 +156,9 @@ bool Foam::GeometricField<Type, PatchField, GeoMesh>::readIfPresent()
             << "suggests that a read constructor for field " << this->name()
             << " would be more appropriate." << endl;
     }
-    else if (this->readOpt() == IOobject::READ_IF_PRESENT && this->headerOk())
+    else if (this->readOpt() == IOobject::READ_IF_PRESENT && this->headerOkPar())
     {
-        boundaryField_.transfer(readField(this->readStream(typeName))());
+        boundaryField_.transfer(readField(this->readStreamPar(typeName))());
         this->close();
 
         // Check compatibility between field and mesh
@@ -348,7 +384,7 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::GeometricField
     timeIndex_(this->time().timeIndex()),
     field0Ptr_(nullptr),
     fieldPrevIterPtr_(nullptr),
-    boundaryField_(*this, readField(this->readStream(typeName)))
+    boundaryField_(*this, readField(this->readStreamPar(typeName)))
 {
     this->close();
 
@@ -980,6 +1016,50 @@ void Foam::GeometricField<Type, PatchField, GeoMesh>::writeMinMax
 }
 
 
+template<class Type, template<class> class PatchField, class GeoMesh>
+bool Foam::GeometricField<Type, PatchField, GeoMesh>::writeToStream
+(
+    const fileName& pathname,
+    ios_base::openmode mode,
+    IOstreamOption streamOpt
+) const
+{
+    if (streamOpt.format() != IOstream::COHERENT)
+    {
+        return regIOobject::writeToStream(pathname, mode, streamOpt);
+    }
+
+    OFCstream<Type, PatchField, GeoMesh> os
+    (
+        pathname,
+        this->mesh().thisDb(),
+        mode,
+        streamOpt
+    );
+
+    // If any of these fail, return (leave error handling to Ostream class)
+    if (!os.good())
+    {
+        return false;
+    }
+
+    if (!this->writeHeader(os))
+    {
+        return false;
+    }
+
+    // Write the data to the Ostream
+    if (!this->writeData(os))
+    {
+        return false;
+    }
+
+    this->writeEndDivider(os);
+
+    return os.good();
+}
+
+
 // writeData member function required by regIOobject
 template<class Type, template<class> class PatchField, class GeoMesh>
 bool Foam::GeometricField<Type, PatchField, GeoMesh>::
@@ -987,6 +1067,44 @@ writeData(Ostream& os) const
 {
     os << *this;
     return os.good();
+}
+
+
+template<class Type, template<class> class PatchField, class GeoMesh>
+Foam::Istream*
+Foam::GeometricField<Type, PatchField, GeoMesh>::objectStreamPar
+(
+    const fileName& fName
+)
+{
+    if (debug)
+    {
+        Info<< "GeometricField<Type, PatchField, GeoMesh>::objectStreamPar : "
+               "Constructing object stream IFCstream"
+            << endl << this->info() << endl;
+    }
+
+    // Forbid format mixing, i.e. no reading with COHERENT when the write
+    // format is different
+    if (fName.size() && this->mesh().time().writeFormat() == IOstream::COHERENT)
+    {
+        IFCstream* isPtr =
+            new IFCstream(fName, this->mesh().thisDb(), IOstream::COHERENT);
+
+        if (isPtr->good())
+        {
+            return isPtr;
+        }
+        else
+        {
+            delete isPtr;
+            return nullptr;
+        }
+    }
+    else
+    {
+        return nullptr;
+    }
 }
 
 

@@ -212,6 +212,14 @@ Field<Type>::Field
     const label s
 )
 {
+    if (debug)
+    {
+        Info<< "Field<Type>::Field"
+            << "(const word& keyword, const dictionary& dict, const label s)"
+            << " : keyword = " << keyword
+            << endl;
+    }
+
     if (s)
     {
         ITstream& is = dict.lookup(keyword);
@@ -596,6 +604,14 @@ template<class Type>
 void Field<Type>::writeEntry(const word& keyword, Ostream& os) const
 {
     os.writeKeyword(keyword);
+
+    if (os.format() == IOstream::COHERENT)
+    {
+        // Trigger write, the uniformity check will be performed later
+        List<Type>::writeEntry(os);
+
+        return;
+    }
 
     bool uniform = false;
 

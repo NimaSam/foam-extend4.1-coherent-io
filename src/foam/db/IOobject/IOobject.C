@@ -26,6 +26,7 @@ License
 #include "IOobject.H"
 #include "foamTime.H"
 #include "IFstream.H"
+#include "Pstream.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -445,6 +446,29 @@ Foam::Istream* Foam::IOobject::objectStream(const fileName& fName)
 }
 
 
+Foam::Istream* Foam::IOobject::objectStreamPar(const fileName& fName)
+{
+    if (fName.size())
+    {
+        IFstream* isPtr = new IFstream(fName, IOstream::COHERENT);
+
+        if (isPtr->good())
+        {
+            return isPtr;
+        }
+        else
+        {
+            delete isPtr;
+            return nullptr;
+        }
+    }
+    else
+    {
+        return nullptr;
+    }
+}
+
+
 bool Foam::IOobject::headerOk()
 {
     bool ok = true;
@@ -483,6 +507,30 @@ bool Foam::IOobject::headerOk()
     delete isPtr;
 
     return ok;
+}
+
+
+bool Foam::IOobject::headerOkPar()
+{
+    const word writeFormat(time().controlDict().lookup("writeFormat"));
+    const bool isCoherentFormat =
+        (IOstream::formatEnum(writeFormat) == IOstream::COHERENT);
+
+    if (isCoherentFormat)
+    {
+        bool ok;
+        if (Pstream::master())
+        {
+            ok = headerOk();
+        }
+        Pstream::scatter(ok);
+
+        return ok;
+    }
+    else
+    {
+        return headerOk();
+    }
 }
 
 

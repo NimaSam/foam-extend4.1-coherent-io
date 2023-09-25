@@ -119,6 +119,7 @@ int main(int argc, char *argv[])
 
     bool writeCellDist = args.optionFound("cellDist");
     bool copyUniform = args.optionFound("copyUniform");
+    bool decomposeMeshOnly = args.optionFound("mesh");
     bool decomposeFieldsOnly = args.optionFound("fields");
     bool filterPatches = args.optionFound("filterPatches");
     bool forceOverwrite = args.optionFound("force");
@@ -136,9 +137,9 @@ int main(int argc, char *argv[])
         (
             runTime.path()
            /(word("processor") + name(nProcs))
-           /runTime.constant()
-           /regionDir
-           /polyMesh::meshSubDir
+           ///runTime.constant()
+           ///regionDir
+           ///polyMesh::meshSubDir
         )
     )
     {
@@ -263,7 +264,6 @@ int main(int argc, char *argv[])
         )
     );
 
-
     // Decompose the mesh
     if (!decomposeFieldsOnly)
     {
@@ -271,61 +271,11 @@ int main(int argc, char *argv[])
 
         meshDecomp.writeDecomposition();
 
-        if (writeCellDist)
-        {
-            const labelList& procIds = meshDecomp.cellToProc();
-
-            // Write the decomposition as labelList for use with 'manual'
-            // decomposition method.
-            labelIOList cellDecomposition
-            (
-                IOobject
-                (
-                    "cellDecomposition",
-                    mesh.facesInstance(),
-                    mesh,
-                    IOobject::NO_READ,
-                    IOobject::NO_WRITE,
-                    false
-                ),
-                procIds
-            );
-            cellDecomposition.write();
-
-            Info<< nl << "Wrote decomposition to "
-                << cellDecomposition.objectPath()
-                << " for use in manual decomposition." << endl;
-
-            // Write as volScalarField for post-processing
-            volScalarField cellDist
-            (
-                IOobject
-                (
-                    "cellDist",
-                    runTime.timeName(),
-                    mesh.dbDir(),
-                    mesh,
-                    IOobject::NO_READ,
-                    IOobject::NO_WRITE
-                ),
-                mesh,
-                dimensionedScalar("cellDist", dimless, 0),
-                zeroGradientFvPatchScalarField::typeName
-            );
-
-            forAll(procIds, celli)
-            {
-               cellDist[celli] = procIds[celli];
-            }
-
-            cellDist.write();
-
-            Info<< nl << "Wrote decomposition as volScalarField to "
-                << cellDist.name() << " for use in post-processing."
-                << endl;
-        }
+        SliceStreamRepo::instance()->clear();
     }
 
+    if (!decomposeMeshOnly)
+    {
 
     // Search for list of objects for this time
     IOobjectList objects(mesh, runTime.timeName());
@@ -361,242 +311,6 @@ int main(int argc, char *argv[])
     PtrList<surfaceTensorField> surfaceTensorFields;
     readFields(mesh, objects, surfaceTensorFields);
 
-
-    // Construct the point fields
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~
-    const pointMesh& pMesh = pointMesh::New(mesh);
-
-    PtrList<pointScalarField> pointScalarFields;
-    readFields(pMesh, objects, pointScalarFields);
-
-    PtrList<pointVectorField> pointVectorFields;
-    readFields(pMesh, objects, pointVectorFields);
-
-    PtrList<pointSphericalTensorField> pointSphericalTensorFields;
-    readFields(pMesh, objects, pointSphericalTensorFields);
-
-    PtrList<pointSymmTensorField> pointSymmTensorFields;
-    readFields(pMesh, objects, pointSymmTensorFields);
-
-    PtrList<pointTensorField> pointTensorFields;
-    readFields(pMesh, objects, pointTensorFields);
-
-
-    // Construct the tetPoint fields
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~
-    tetPolyMesh* tetMeshPtr = nullptr;
-
-    PtrList<tetPointScalarField> tetPointScalarFields;
-    PtrList<tetPointVectorField> tetPointVectorFields;
-    PtrList<tetPointSphericalTensorField> tetPointSphericalTensorFields;
-    PtrList<tetPointSymmTensorField> tetPointSymmTensorFields;
-    PtrList<tetPointTensorField> tetPointTensorFields;
-
-    PtrList<elementScalarField> elementScalarFields;
-    PtrList<elementVectorField> elementVectorFields;
-
-    if
-    (
-        objects.lookupClass("tetPointScalarField").size() > 0
-     || objects.lookupClass("tetPointVectorField").size() > 0
-     || objects.lookupClass("tetPointSphericalTensorField").size() > 0
-     || objects.lookupClass("tetPointSymmTensorField").size() > 0
-     || objects.lookupClass("tetPointTensorField").size() > 0
-
-     || objects.lookupClass("elementScalarField").size() > 0
-     || objects.lookupClass("elementVectorField").size() > 0
-    )
-    {
-        tetMeshPtr = new tetPolyMesh(mesh);
-        tetPolyMesh& tetMesh = *tetMeshPtr;
-
-        readFields(tetMesh, objects, tetPointScalarFields);
-        readFields(tetMesh, objects, tetPointVectorFields);
-        readFields(tetMesh, objects, tetPointSphericalTensorFields);
-        readFields(tetMesh, objects, tetPointSymmTensorFields);
-        readFields(tetMesh, objects, tetPointTensorFields);
-
-        readFields(tetMesh, objects, elementScalarFields);
-        readFields(tetMesh, objects, elementVectorFields);
-    }
-
-
-    // Construct the Lagrangian fields
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    fileNameList cloudDirs
-    (
-        readDir(runTime.timePath()/cloud::prefix, fileName::DIRECTORY)
-    );
-
-    // Particles
-    PtrList<Cloud<indexedParticle> > lagrangianPositions(cloudDirs.size());
-    // Particles per cell
-    PtrList< List<SLList<indexedParticle*>*> > cellParticles(cloudDirs.size());
-
-    PtrList<PtrList<labelIOField> > lagrangianLabelFields(cloudDirs.size());
-    PtrList<PtrList<scalarIOField> > lagrangianScalarFields(cloudDirs.size());
-    PtrList<PtrList<vectorIOField> > lagrangianVectorFields(cloudDirs.size());
-    PtrList<PtrList<sphericalTensorIOField> > lagrangianSphericalTensorFields
-    (
-        cloudDirs.size()
-    );
-    PtrList<PtrList<symmTensorIOField> > lagrangianSymmTensorFields
-    (
-        cloudDirs.size()
-    );
-    PtrList<PtrList<tensorIOField> > lagrangianTensorFields
-    (
-        cloudDirs.size()
-    );
-
-    label cloudI = 0;
-
-    forAll(cloudDirs, i)
-    {
-        IOobjectList sprayObjs
-        (
-            mesh,
-            runTime.timeName(),
-            cloud::prefix/cloudDirs[i]
-        );
-
-        IOobject* positionsPtr = sprayObjs.lookup("positions");
-
-        if (positionsPtr)
-        {
-            // Read lagrangian particles
-            // ~~~~~~~~~~~~~~~~~~~~~~~~~
-
-            Info<< "Identified lagrangian data set: " << cloudDirs[i] << endl;
-
-            lagrangianPositions.set
-            (
-                cloudI,
-                new Cloud<indexedParticle>
-                (
-                    mesh,
-                    cloudDirs[i],
-                    false
-                )
-            );
-
-
-            // Sort particles per cell
-            // ~~~~~~~~~~~~~~~~~~~~~~~
-
-            cellParticles.set
-            (
-                cloudI,
-                new List<SLList<indexedParticle*>*>
-                (
-                    mesh.nCells(),
-                    static_cast<SLList<indexedParticle*>*>(nullptr)
-                )
-            );
-
-            label i = 0;
-
-            forAllIter
-            (
-                Cloud<indexedParticle>,
-                lagrangianPositions[cloudI],
-                iter
-            )
-            {
-                iter().index() = i++;
-
-                label celli = iter().cell();
-
-                // Check
-                if (celli < 0 || celli >= mesh.nCells())
-                {
-                    FatalErrorIn(args.executable())
-                        << "Illegal cell number " << celli
-                        << " for particle with index " << iter().index()
-                        << " at position " << iter().position() << nl
-                        << "Cell number should be between 0 and "
-                        << mesh.nCells()-1 << nl
-                        << "On this mesh the particle should be in cell "
-                        << mesh.findCell(iter().position())
-                        << exit(FatalError);
-                }
-
-                if (!cellParticles[cloudI][celli])
-                {
-                    cellParticles[cloudI][celli] =
-                        new SLList<indexedParticle*>();
-                }
-
-                cellParticles[cloudI][celli]->append(&iter());
-            }
-
-            // Read fields
-            // ~~~~~~~~~~~
-
-            IOobjectList lagrangianObjects
-            (
-                mesh,
-                runTime.timeName(),
-                cloud::prefix/cloudDirs[cloudI]
-            );
-
-            lagrangianFieldDecomposer::readFields
-            (
-                cloudI,
-                lagrangianObjects,
-                lagrangianLabelFields
-            );
-
-            lagrangianFieldDecomposer::readFields
-            (
-                cloudI,
-                lagrangianObjects,
-                lagrangianScalarFields
-            );
-
-            lagrangianFieldDecomposer::readFields
-            (
-                cloudI,
-                lagrangianObjects,
-                lagrangianVectorFields
-            );
-
-            lagrangianFieldDecomposer::readFields
-            (
-                cloudI,
-                lagrangianObjects,
-                lagrangianSphericalTensorFields
-            );
-
-            lagrangianFieldDecomposer::readFields
-            (
-                cloudI,
-                lagrangianObjects,
-                lagrangianSymmTensorFields
-            );
-
-            lagrangianFieldDecomposer::readFields
-            (
-                cloudI,
-                lagrangianObjects,
-                lagrangianTensorFields
-            );
-
-            cloudI++;
-        }
-    }
-
-    lagrangianPositions.setSize(cloudI);
-    cellParticles.setSize(cloudI);
-    lagrangianLabelFields.setSize(cloudI);
-    lagrangianScalarFields.setSize(cloudI);
-    lagrangianVectorFields.setSize(cloudI);
-    lagrangianSphericalTensorFields.setSize(cloudI);
-    lagrangianSymmTensorFields.setSize(cloudI);
-    lagrangianTensorFields.setSize(cloudI);
-
-
     // Any uniform data to copy/link?
     fileName uniformDir("uniform");
 
@@ -613,6 +327,72 @@ int main(int argc, char *argv[])
 
     Info<< endl;
 
+    if ( mesh.time().writeFormat() == IOstream::COHERENT ) {
+
+        Time myDb( Time::controlDictName,
+                   mesh.time().rootPath(),
+                   mesh.time().caseName(),
+                   "system",
+                   "constant",
+                   true );
+
+        // Read the mesh
+        fvMesh coherentMesh
+        (
+            IOobject
+            (
+                regionName,
+                myDb.timeName(),
+                myDb
+            )
+        );
+
+        auto coherentFaceAddressing = meshDecomp.coherentFaceAddressing();
+        auto coherentCellAddressing = meshDecomp.coherentCellAddressing();
+        auto coherentBoundaryAddressing = meshDecomp.blankAddressing( mesh.boundaryMesh().size() );
+
+        // Old format of face addressing requires a plus one.
+        for ( auto& faceId : coherentFaceAddressing ) { ++faceId; }
+
+        // FV fields
+        if
+        (
+            volScalarFields.size()
+         || volVectorFields.size()
+         || volSphericalTensorFields.size()
+         || volSymmTensorFields.size()
+         || volTensorFields.size()
+         || surfaceScalarFields.size()
+         || surfaceVectorFields.size()
+         || surfaceSphericalTensorFields.size()
+         || surfaceSymmTensorFields.size()
+         || surfaceTensorFields.size()
+        )
+        {
+            fvFieldDecomposer fieldDecomposer
+            (
+                mesh,
+                coherentMesh,
+                coherentFaceAddressing,
+                coherentCellAddressing,
+                coherentBoundaryAddressing
+            );
+
+            fieldDecomposer.decomposeFields(volScalarFields);
+            fieldDecomposer.decomposeFields(volVectorFields);
+            fieldDecomposer.decomposeFields(volSphericalTensorFields);
+            fieldDecomposer.decomposeFields(volSymmTensorFields);
+            fieldDecomposer.decomposeFields(volTensorFields);
+
+            fieldDecomposer.decomposeFields(surfaceScalarFields);
+            fieldDecomposer.decomposeFields(surfaceVectorFields);
+            fieldDecomposer.decomposeFields(surfaceSphericalTensorFields);
+            fieldDecomposer.decomposeFields(surfaceSymmTensorFields);
+            fieldDecomposer.decomposeFields(surfaceTensorFields);
+        }
+    }
+    else
+    {
     // Split the fields over processors
     for (label procI = 0; procI < meshDecomp.nProcs(); procI++)
     {
@@ -741,123 +521,6 @@ int main(int argc, char *argv[])
             fieldDecomposer.decomposeFields(surfaceTensorFields);
         }
 
-
-        // Point fields
-        if
-        (
-            pointScalarFields.size()
-         || pointVectorFields.size()
-         || pointSphericalTensorFields.size()
-         || pointSymmTensorFields.size()
-         || pointTensorFields.size()
-        )
-        {
-            const pointMesh& procPMesh = pointMesh::New(procMesh, true);
-
-            pointFieldDecomposer fieldDecomposer
-            (
-                pMesh,
-                procPMesh,
-                pointProcAddressing,
-                boundaryProcAddressing
-            );
-
-            fieldDecomposer.decomposeFields(pointScalarFields);
-            fieldDecomposer.decomposeFields(pointVectorFields);
-            fieldDecomposer.decomposeFields(pointSphericalTensorFields);
-            fieldDecomposer.decomposeFields(pointSymmTensorFields);
-            fieldDecomposer.decomposeFields(pointTensorFields);
-        }
-
-
-        // tetPoint fields
-        if (tetMeshPtr)
-        {
-            const tetPolyMesh& tetMesh = *tetMeshPtr;
-            tetPolyMesh procTetMesh(procMesh);
-
-            tetPointFieldDecomposer fieldDecomposer
-            (
-                tetMesh,
-                procTetMesh,
-                pointProcAddressing,
-                faceProcAddressing,
-                cellProcAddressing,
-                boundaryProcAddressing
-            );
-
-            fieldDecomposer.decomposeFields(tetPointScalarFields);
-            fieldDecomposer.decomposeFields(tetPointVectorFields);
-            fieldDecomposer.decomposeFields(tetPointSphericalTensorFields);
-            fieldDecomposer.decomposeFields(tetPointSymmTensorFields);
-            fieldDecomposer.decomposeFields(tetPointTensorFields);
-
-            fieldDecomposer.decomposeFields(elementScalarFields);
-            fieldDecomposer.decomposeFields(elementVectorFields);
-        }
-
-
-        // If there is lagrangian data write it out
-        forAll(lagrangianPositions, cloudI)
-        {
-            if (lagrangianPositions[cloudI].size())
-            {
-                lagrangianFieldDecomposer fieldDecomposer
-                (
-                    mesh,
-                    procMesh,
-                    cellProcAddressing,
-                    cloudDirs[cloudI],
-                    lagrangianPositions[cloudI],
-                    cellParticles[cloudI]
-                );
-
-                // Lagrangian fields
-                if
-                (
-                    lagrangianLabelFields[cloudI].size()
-                 || lagrangianScalarFields[cloudI].size()
-                 || lagrangianVectorFields[cloudI].size()
-                 || lagrangianSphericalTensorFields[cloudI].size()
-                 || lagrangianSymmTensorFields[cloudI].size()
-                 || lagrangianTensorFields[cloudI].size()
-                )
-                {
-                    fieldDecomposer.decomposeFields
-                    (
-                        cloudDirs[cloudI],
-                        lagrangianLabelFields[cloudI]
-                    );
-                    fieldDecomposer.decomposeFields
-                    (
-                        cloudDirs[cloudI],
-                        lagrangianScalarFields[cloudI]
-                    );
-                    fieldDecomposer.decomposeFields
-                    (
-                        cloudDirs[cloudI],
-                        lagrangianVectorFields[cloudI]
-                    );
-                    fieldDecomposer.decomposeFields
-                    (
-                        cloudDirs[cloudI],
-                        lagrangianSphericalTensorFields[cloudI]
-                    );
-                    fieldDecomposer.decomposeFields
-                    (
-                        cloudDirs[cloudI],
-                        lagrangianSymmTensorFields[cloudI]
-                    );
-                    fieldDecomposer.decomposeFields
-                    (
-                        cloudDirs[cloudI],
-                        lagrangianTensorFields[cloudI]
-                    );
-                }
-            }
-        }
-
-
         // Any non-decomposed data to copy?
         if (uniformDir.size())
         {
@@ -889,176 +552,10 @@ int main(int argc, char *argv[])
                 }
             }
         }
+
     }
-
-
-    if (tetMeshPtr)
-    {
-        delete tetMeshPtr;
-        tetMeshPtr = nullptr;
-    }
-
-
-    // Finite area mesh and field decomposition
-
-    IOobject faMeshBoundaryIOobj
-    (
-        "faBoundary",
-        mesh.time().findInstance
-        (
-            mesh.meshDir(),
-            "boundary"
-        ),
-        faMesh::meshSubDir,
-        mesh,
-        IOobject::READ_IF_PRESENT,
-        IOobject::NO_WRITE
-    );
-
-
-    if(faMeshBoundaryIOobj.headerOk())
-    {
-        Info << "\nFinite area mesh decomposition" << endl;
-
-        faMeshDecomposition aMesh(mesh);
-
-        aMesh.decomposeMesh(filterPatches);
-
-        aMesh.writeDecomposition();
-
-
-        // Construct the area fields
-        // ~~~~~~~~~~~~~~~~~~~~~~~~
-        PtrList<areaScalarField> areaScalarFields;
-        readFields(aMesh, objects, areaScalarFields);
-
-        PtrList<areaVectorField> areaVectorFields;
-        readFields(aMesh, objects, areaVectorFields);
-
-        PtrList<areaSphericalTensorField> areaSphericalTensorFields;
-        readFields(aMesh, objects, areaSphericalTensorFields);
-
-        PtrList<areaSymmTensorField> areaSymmTensorFields;
-        readFields(aMesh, objects, areaSymmTensorFields);
-
-        PtrList<areaTensorField> areaTensorFields;
-        readFields(aMesh, objects, areaTensorFields);
-
-
-        // Construct the edge fields
-        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        PtrList<edgeScalarField> edgeScalarFields;
-        readFields(aMesh, objects, edgeScalarFields);
-
-        Info << endl;
-
-        // Split the fields over processors
-        for (label procI = 0; procI < meshDecomp.nProcs(); procI++)
-        {
-            Info<< "Processor " << procI
-                << ": finite area field transfer" << endl;
-
-            // open the database
-            Time processorDb
-            (
-                Time::controlDictName,
-                args.rootPath(),
-                args.caseName()/fileName(word("processor") + name(procI))
-            );
-
-            processorDb.setTime(runTime);
-
-            // Read the mesh
-            fvMesh procFvMesh
-            (
-                IOobject
-                (
-                    regionName,
-                    processorDb.timeName(),
-                    processorDb
-                )
-            );
-
-            faMesh procMesh(procFvMesh);
-
-            word faceLabelsInstance =
-                procMesh.time().findInstance
-                (
-                    procMesh.meshDir(),
-                    "faceLabels"
-                );
-
-
-            labelIOList faceProcAddressing
-            (
-                IOobject
-                (
-                    "faceProcAddressing",
-                    faceLabelsInstance,
-                    procMesh.meshSubDir,
-                    procFvMesh,
-                    IOobject::MUST_READ,
-                    IOobject::NO_WRITE
-                )
-            );
-
-            labelIOList boundaryProcAddressing
-            (
-                IOobject
-                (
-                    "boundaryProcAddressing",
-                    faceLabelsInstance,
-                    procMesh.meshSubDir,
-                    procFvMesh,
-                    IOobject::MUST_READ,
-                    IOobject::NO_WRITE
-                )
-            );
-
-            // FA fields
-            if
-            (
-                areaScalarFields.size()
-             || areaVectorFields.size()
-             || areaSphericalTensorFields.size()
-             || areaSymmTensorFields.size()
-             || areaTensorFields.size()
-             || edgeScalarFields.size()
-            )
-            {
-                labelIOList edgeProcAddressing
-                (
-                    IOobject
-                    (
-                        "edgeProcAddressing",
-                        faceLabelsInstance,
-                        procMesh.meshSubDir,
-                        procFvMesh,
-                        IOobject::MUST_READ,
-                        IOobject::NO_WRITE
-                    )
-                );
-
-                faFieldDecomposer fieldDecomposer
-                (
-                    aMesh,
-                    procMesh,
-                    edgeProcAddressing,
-                    faceProcAddressing,
-                    boundaryProcAddressing
-                );
-
-                fieldDecomposer.decomposeFields(areaScalarFields);
-                fieldDecomposer.decomposeFields(areaVectorFields);
-                fieldDecomposer.decomposeFields(areaSphericalTensorFields);
-                fieldDecomposer.decomposeFields(areaSymmTensorFields);
-                fieldDecomposer.decomposeFields(areaTensorFields);
-
-                fieldDecomposer.decomposeFields(edgeScalarFields);
-            }
-        }
-    }
-
+    } // for-loop on procI
+    } // if ( IOstream::COHERENT )
 
     Info<< "\nEnd.\n" << endl;
 

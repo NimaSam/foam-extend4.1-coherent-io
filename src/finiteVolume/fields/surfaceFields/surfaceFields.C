@@ -48,6 +48,14 @@ defineTemplateTypeNameAndDebug(surfaceSymmTensor4thOrderField, 0);
 defineTemplateTypeNameAndDebug(surfaceDiagTensorField, 0);
 defineTemplateTypeNameAndDebug(surfaceTensorField, 0);
 
+
+template<>
+label IFCstream::coherentFieldSize<fvsPatchField, surfaceMesh>()
+{
+    return coherentMesh_.internalSurfaceFieldOffsets().size();
+}
+
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 } // End namespace Foam

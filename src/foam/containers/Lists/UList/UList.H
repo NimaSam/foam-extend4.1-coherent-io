@@ -47,10 +47,14 @@ SourceFiles
 #include "uLabel.H"
 #include "nullObject.H"
 
+#include "className.H"
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
+
+TemplateName(DebugIOUList);
 
 // Forward declaration of friend classes
 template<class T> class List;
@@ -69,6 +73,8 @@ typedef UList<label> labelUList;
 
 template<class T>
 class UList
+:
+    public DebugIOUListName
 {
     // Private data
 
@@ -158,7 +164,6 @@ public:
             //  if the element is a primitive type
             //  i.e. contiguous<T>() == true
             label byteSize() const;
-
 
             //- Return a const pointer to the first data element,
             //  similar to the STL front() method and the string::data() method
@@ -372,6 +377,8 @@ inline void reverse(UList<T>&, const label n);
 template<class T>
 inline void reverse(UList<T>&);
 
+template<class T>
+void swap( UList<T>& a, UList<T>& b );
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

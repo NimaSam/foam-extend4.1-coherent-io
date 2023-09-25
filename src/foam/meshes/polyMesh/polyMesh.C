@@ -34,6 +34,18 @@ License
 #include "treeDataCell.H"
 #include "MeshObject.H"
 #include "pointMesh.H"
+#include "SliceWriting.H"
+#include "SliceStream.H"
+#include "sliceWritePrimitives.H"
+
+#include "DynamicList.H"
+#include <numeric>
+#include <set>
+#include <map>
+#include <array>
+#include "SlicePermutation.H"
+
+#include "CoherentMesh.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -200,6 +212,7 @@ void Foam::polyMesh::calcDirections() const
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
+
 Foam::polyMesh::polyMesh(const IOobject& io)
 :
     objectRegistry(io),
@@ -212,9 +225,10 @@ Foam::polyMesh::polyMesh(const IOobject& io)
             time().findInstance(meshDir(), "points"),
             meshSubDir,
             *this,
-            IOobject::MUST_READ,
-            IOobject::NO_WRITE
-        )
+            IOobject::NO_READ,
+            IOobject::AUTO_WRITE
+        ),
+        pointField(0)
     ),
     // To be re-sliced later.  HJ, 19/oct/2008
     points_(allPoints_, allPoints_.size()),
@@ -226,9 +240,10 @@ Foam::polyMesh::polyMesh(const IOobject& io)
             time().findInstance(meshDir(), "faces"),
             meshSubDir,
             *this,
-            IOobject::MUST_READ,
-            IOobject::NO_WRITE
-        )
+            IOobject::NO_READ,
+            IOobject::AUTO_WRITE
+        ),
+        faceList(0)
     ),
     // To be re-sliced later.  HJ, 19/oct/2008
     faces_(allFaces_, allFaces_.size()),
@@ -240,9 +255,10 @@ Foam::polyMesh::polyMesh(const IOobject& io)
             time().findInstance(meshDir(), "faces"),
             meshSubDir,
             *this,
-            IOobject::READ_IF_PRESENT,
-            IOobject::NO_WRITE
-        )
+            IOobject::NO_READ,
+            IOobject::AUTO_WRITE
+        ),
+        labelList(0)
     ),
     neighbour_
     (
@@ -252,9 +268,10 @@ Foam::polyMesh::polyMesh(const IOobject& io)
             time().findInstance(meshDir(), "faces"),
             meshSubDir,
             *this,
-            IOobject::READ_IF_PRESENT,
-            IOobject::NO_WRITE
-        )
+            IOobject::NO_READ,
+            IOobject::AUTO_WRITE
+        ),
+        labelList(0)
     ),
     syncPar_(true),  // Reading mesh from IOobject: must be valid
     clearedPrimitives_(false),
@@ -267,9 +284,10 @@ Foam::polyMesh::polyMesh(const IOobject& io)
             meshSubDir,
             *this,
             IOobject::MUST_READ,
-            IOobject::NO_WRITE
+            IOobject::AUTO_WRITE
         ),
-        *this
+        *this,
+        0
     ),
     bounds_(allPoints_),  // Reading mesh from IOobject: syncPar
     geometricD_(Vector<label>::zero),
@@ -336,7 +354,118 @@ Foam::polyMesh::polyMesh(const IOobject& io)
     oldAllPointsPtr_(nullptr),
     oldPointsPtr_(nullptr)
 {
-    if (exists(owner_.objectPath()))
+    if (time().writeFormat() == IOstream::COHERENT)
+    {
+        this->checkOut( allPoints_ );
+        this->checkOut( allFaces_ );
+        this->checkOut( owner_ );
+        this->checkOut( neighbour_ );
+        this->checkOut( boundary_ );
+
+        // Clear addressing. Keep geometric props for mapping.
+        clearAddressing();
+
+        // Clear everything
+        clearOut();
+
+        // Create a CoherentMesh object and transfer the ownership to the registry
+        // in order to enable access later on
+        const CoherentMesh& coherentMeshConst = CoherentMesh::New(*(this));
+        CoherentMesh& coherentMesh = const_cast<CoherentMesh&>(coherentMeshConst);
+        coherentMesh.polyNeighbours(neighbour_);
+        coherentMesh.polyOwner(owner_);
+        coherentMesh.polyFaces(allFaces_);
+        coherentMesh.polyPoints(allPoints_);
+        faces_.reset( allFaces_, allFaces_.size() );
+        points_.reset( allPoints_, allPoints_.size() );
+
+        Foam::List<Foam::polyPatch*> procPatches = coherentMesh.polyPatches( boundary_ );
+        addPatches(procPatches, false);
+
+        bounds_ = boundBox( allPoints_ );
+    }
+    else
+    {
+        allPoints_ = pointIOField
+                     (
+                         IOobject
+                         (
+                             "points",
+                             time().findInstance(meshDir(), "points"),
+                             meshSubDir,
+                             *this,
+                             IOobject::MUST_READ,
+                             IOobject::NO_WRITE
+                         )
+                     );
+        allFaces_ = faceIOList
+                    (
+                        IOobject
+                        (
+                            "faces",
+                            time().findInstance(meshDir(), "faces"),
+                            meshSubDir,
+                            *this,
+                            IOobject::MUST_READ,
+                            IOobject::NO_WRITE
+                        )
+                    );
+        owner_ = labelIOList
+                 (
+                     IOobject
+                     (
+                         "owner",
+                         time().findInstance(meshDir(), "owner"),
+                         meshSubDir,
+                         *this,
+                         IOobject::MUST_READ,
+                         IOobject::NO_WRITE
+                     )
+                 );
+        neighbour_ = labelIOList
+                     (
+                         IOobject
+                         (
+                             "neighbour",
+                             time().findInstance(meshDir(), "neighbour"),
+                             meshSubDir,
+                             *this,
+                             IOobject::MUST_READ,
+                             IOobject::NO_WRITE
+                         )
+                     );
+        faces_.reset( allFaces_, allFaces_.size() );
+        points_.reset( allPoints_, allPoints_.size() );
+        bounds_ = boundBox( allPoints_ );
+
+        Istream& is = boundary_.readStream("polyBoundaryMesh");
+        PtrList<entry> patchEntries(is);
+        boundary_.setSize(patchEntries.size());
+        forAll(patchEntries, patchI)
+        {
+            boundary_.set
+            (
+                patchI,
+                polyPatch::New
+                (
+                    patchEntries[patchI].keyword(),
+                    patchEntries[patchI].dict(),
+                    patchI,
+                    boundary_
+                )
+            );
+        }
+
+        // TODO: Is this what we want, for instance, for dynamic meshes?
+        this->checkOut( allPoints_ );
+        this->checkOut( allFaces_ );
+        this->checkOut( owner_ );
+        this->checkOut( neighbour_ );
+        this->checkOut( boundary_ );
+    }
+
+    // if (exists(owner_.objectPath()))
+    if (owner_.headerOkPar() || (time().writeFormat() == IOstream::COHERENT))
     {
         initMesh();
     }
@@ -381,6 +510,11 @@ Foam::polyMesh::polyMesh(const IOobject& io)
     {
         WarningIn("polyMesh(const IOobject&)")
             << "no cells in mesh" << endl;
+    }
+
+    if (debug)
+    {
+        checkMesh( true );
     }
 }
 
@@ -522,6 +656,14 @@ Foam::polyMesh::polyMesh
     oldAllPointsPtr_(nullptr),
     oldPointsPtr_(nullptr)
 {
+    if (time().writeFormat() == IOstream::COHERENT)
+    {
+        this->checkOut( allPoints_ );
+        this->checkOut( allFaces_ );
+        this->checkOut( owner_ );
+        this->checkOut( neighbour_ );
+    }
+
     // Check if the faces and cells are valid
     forAll (allFaces_, faceI)
     {
@@ -684,6 +826,14 @@ Foam::polyMesh::polyMesh
     oldAllPointsPtr_(nullptr),
     oldPointsPtr_(nullptr)
 {
+    if (time().writeFormat() == IOstream::COHERENT)
+    {
+        this->checkOut( allPoints_ );
+        this->checkOut( allFaces_ );
+        this->checkOut( owner_ );
+        this->checkOut( neighbour_ );
+    }
+
     // Check if the faces and cells are valid
     forAll (allFaces_, faceI)
     {
@@ -1417,6 +1567,134 @@ Foam::label Foam::polyMesh::findCell
         }
         return -1;
     }
+}
+
+template<typename T>
+Foam::labelList determineOffsets2D( const T& input2DList )
+{
+    Foam::label offset = 0;
+    Foam::labelList offsets( input2DList.size() + 1, 0 );
+    forAll( input2DList, i )
+    {
+       offset += input2DList[i].size();
+       offsets[ i+1 ] = offset;
+    }
+
+    return offsets;
+}
+
+
+bool Foam::polyMesh::write() const
+{
+    if (time().writeFormat() == IOstream::COHERENT)
+    {
+        // Write mesh to a separate file
+        auto path = pointsInstance()/meshDir();
+        auto sliceStreamPtr = SliceWriting{}.createStream();
+        sliceStreamPtr->access("mesh", path);
+
+        SlicePermutation sliceablePermutation{ *this };
+
+        faceList sliceFaces = sliceablePermutation.retrieveFaces();
+        // Linearize faces and points
+        label k = 0;
+        Foam::label linearSizeOfFaces =
+            std::accumulate
+            (
+                allFaces_.begin(),
+                allFaces_.end(),
+                0,
+                [] (label size, Foam::face input)
+                {
+                    return std::move(size) + input.size();
+                }
+            );
+        Foam::List<Foam::label> linearizedFaces( linearSizeOfFaces, 0 );
+        forAll( sliceFaces, i )
+        {
+           forAll( sliceFaces[i], j )
+           {
+               linearizedFaces[k] = sliceFaces[i][j];
+               ++k;
+           }
+        }
+
+        auto faceStarts = determineOffsets2D( sliceFaces ); // Generate offsets of linearized face list
+        sliceStreamPtr->put
+        (
+            "faceStarts",
+            {faceStarts.size()},
+            {0},
+            {faceStarts.size()},
+            faceStarts.cdata()
+        );
+        sliceStreamPtr->put
+        (
+            "faces",
+            {linearizedFaces.size()},
+            {0},
+            {linearizedFaces.size()},
+            linearizedFaces.cdata()
+        );
+        sliceFaces.clear();
+
+        Foam::labelList sliceOwner(owner_);
+        sliceablePermutation.apply(sliceOwner);
+        // Generate ownerStarts
+        // - Takes into account if cell is not owning any faces.
+        labelList ownerStarts( cells().size() + 1, 0 );
+        for (const auto& ownerId : sliceOwner )
+        {
+            ownerStarts[ownerId+1] += 1;
+        }
+        for ( label ownerId = 1; ownerId < ownerStarts.size(); ++ownerId )
+        {
+            ownerStarts[ownerId] += ownerStarts[ownerId-1];
+        }
+        sliceStreamPtr->put
+        (
+            "ownerStarts",
+            {ownerStarts.size()},
+            {0},
+            {ownerStarts.size()},
+            ownerStarts.cdata()
+        );
+        sliceOwner.clear();
+
+        // Generate local neighbours
+        Foam::labelList sliceNeighbours;
+        sliceablePermutation.retrieveNeighbours( sliceNeighbours, *this );
+        sliceStreamPtr->put
+        (
+            "neighbours",
+            {sliceNeighbours.size()},
+            {0},
+            {sliceNeighbours.size()},
+            sliceNeighbours.cdata()
+        );
+        sliceStreamPtr->bufferSync();
+        sliceNeighbours.clear();
+        ownerStarts.clear();
+        linearizedFaces.clear();
+        faceStarts.clear();
+
+        Foam::pointField slicePoints( allPoints_ );
+        sliceablePermutation.apply( slicePoints );
+        sliceWritePrimitives
+        (
+            "mesh",
+            path,
+            "points",
+            slicePoints.size(),
+            slicePoints.cdata()
+        );
+        slicePoints.clear();
+
+        auto repo = SliceStreamRepo::instance();
+        repo->close();
+    }
+
+    return regIOobject::write();
 }
 
 

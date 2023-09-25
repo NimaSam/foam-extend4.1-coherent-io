@@ -40,6 +40,8 @@ SourceFiles
 #include "fileName.H"
 #include <iostream>
 
+#include "className.H"
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
@@ -59,14 +61,9 @@ class ISstream
         istream& is_;
 
 
-    // Private member functions
-
-        char nextValid();
-
-        void readWordToken(token&);
-
     // Private Member Functions
 
+        char nextValid();
 
         //- Read a verbatim string (excluding block delimiters).
         Istream& readVerbatim(string&);
@@ -78,7 +75,18 @@ class ISstream
         void operator=(const ISstream&);
 
 
+protected:
+
+    // Protected Member Functions
+
+        virtual void readWordToken(token&);
+
+
+
 public:
+
+    // Declare name of the class and its debug switch
+    ClassName("ISstream");
 
     // Constructors
 
@@ -166,8 +174,19 @@ public:
             //- Read binary block
             virtual Istream& read(char*, std::streamsize);
 
+            //- Read binary block from second stream
+            virtual Istream& parread(parIOType*, const string&)
+            {
+                return *this;
+            }
+
             //- Rewind and return the stream so that it may be read again
             virtual Istream& rewind();
+
+            Istream& readToStringStream(string&)
+            {
+                return *this;
+            }
 
 
         // Stream state functions

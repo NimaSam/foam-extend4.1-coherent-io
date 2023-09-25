@@ -317,6 +317,13 @@ Foam::Istream& Foam::IPstream::read(char* data, std::streamsize count)
 }
 
 
+Foam::Istream& Foam::IPstream::parread(parIOType* data, const string& id)
+{
+    notImplemented("Istream& IPstream::parread(parIOType*, std::streamsize)");
+    return *this;
+}
+
+
 Foam::Istream& Foam::IPstream::rewind()
 {
     bufPosition_ = 0;

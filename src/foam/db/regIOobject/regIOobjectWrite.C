@@ -30,6 +30,10 @@ Description
 #include "objectRegistry.H"
 #include "OSspecific.H"
 #include "OFstream.H"
+#include "SliceStream.H"
+#include "Pstream.H"
+
+#include "profiling.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -39,6 +43,12 @@ bool Foam::regIOobject::writeObject
     IOstream::versionNumber ver,
     IOstream::compressionType cmp
 ) const
+{
+    return writeObject(IOstreamOption(fmt, ver, cmp));
+}
+
+
+bool Foam::regIOobject::writeObject(IOstreamOption streamOpt) const
 {
     if (!good())
     {
@@ -70,50 +80,33 @@ bool Foam::regIOobject::writeObject
         const_cast<regIOobject&>(*this).instance() = time().timeName();
     }
 
-    mkDir(path());
+    if (time().writeFormat() == IOstream::COHERENT)
+    {
+        if (Pstream::master())
+        {
+            mkDir(path());
+        }
+    }
+    else
+    {
+        mkDir(path());
+    }
 
     if (OFstream::debug)
     {
         Info<< "regIOobject::write() : "
-            << "writing file " << objectPath();
+            << "writing file " << objectPath() << " ..." << nl;
     }
 
+    // Try opening an OFstream for object.
+    // May open different streams in the derived classes.
+    bool osGood = writeToStream
+    (
+        objectPath(),
+        ios_base::out|ios_base::trunc,
+        streamOpt
+    );
 
-    bool osGood = false;
-
-    {
-        // Try opening an OFstream for object
-        // Stream open for over-write.  HJ, 17/Aug/2010
-        OFstream os
-        (
-            objectPath(),
-            ios_base::out|ios_base::trunc,
-            fmt,
-            ver,
-            cmp
-        );
-
-        // If any of these fail, return (leave error handling to Ostream class)
-        if (!os.good())
-        {
-            return false;
-        }
-
-        if (!writeHeader(os))
-        {
-            return false;
-        }
-
-        // Write the data to the Ostream
-        if (!writeData(os))
-        {
-            return false;
-        }
-
-        writeEndDivider(os);
-
-        osGood = os.good();
-    }
 
     if (OFstream::debug)
     {
@@ -133,12 +126,92 @@ bool Foam::regIOobject::writeObject
 
 bool Foam::regIOobject::write() const
 {
-    return writeObject
+    addProfile2(io, "Foam::regIOobject::write()");
+
+    bool writeBulkData = false;
+    auto destination = IOstreamOption::TIME;
+    if (time().controlDict().lookupOrDefault("writeBulkData", false))
+    {
+        writeBulkData = true;
+        destination = IOstreamOption::CASE;
+    }
+
+    IOstreamOption streamOpt
     (
         time().writeFormat(),
         IOstream::currentVersion,
-        time().writeCompression()
+        time().writeCompression(),
+        IOstreamOption::SYNC,  // ToDoIO Store this default in foamTime?
+        destination
     );
+
+    if (time().writeFormat() == IOstream::COHERENT)
+    {
+        auto repo = SliceStreamRepo::instance();
+        repo->open(writeBulkData);
+    }
+
+    bool ok = writeObject(streamOpt);
+
+    if (time().writeFormat() == IOstream::COHERENT)
+    {
+        auto repo = SliceStreamRepo::instance();
+        repo->close(writeBulkData);
+    }
+
+    return ok;
+}
+
+
+bool Foam::regIOobject::writeToStream
+(
+    const fileName& pathname,
+    ios_base::openmode mode,
+    IOstream::streamFormat fmt,
+    IOstream::versionNumber ver,
+    IOstream::compressionType cmp
+) const
+{
+    return writeToStream(pathname, mode, IOstreamOption(fmt, ver, cmp));
+}
+
+
+bool Foam::regIOobject::writeToStream
+(
+    const fileName& pathname,
+    ios_base::openmode mode,
+    IOstreamOption streamOpt
+) const
+{
+    // Try opening an OFstream for object
+    // Stream open for over-write.  HJ, 17/Aug/2010
+    OFstream os
+    (
+        objectPath(),
+        ios_base::out|ios_base::trunc,
+        streamOpt
+    );
+
+    // If any of these fail, return (leave error handling to Ostream class)
+    if (!os.good())
+    {
+        return false;
+    }
+
+    if (!writeHeader(os))
+    {
+        return false;
+    }
+
+    // Write the data to the Ostream
+    if (!writeData(os))
+    {
+        return false;
+    }
+
+    writeEndDivider(os);
+
+    return os.good();
 }
 
 // ************************************************************************* //

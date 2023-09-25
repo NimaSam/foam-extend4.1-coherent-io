@@ -42,6 +42,10 @@ SourceFiles
 #include <fstream>
 using std::ofstream;
 
+template<class T> class SLList;
+#include "LIFOStack.H"
+#include "uListProxyBase.H"
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
@@ -67,8 +71,8 @@ class OFstreamAllocator
         (
             const fileName& pathname,
             ios_base::openmode mode,
+            IOstream::streamFormat format = IOstream::ASCII,
             IOstream::compressionType compression = IOstream::UNCOMPRESSED
-
         );
 
     //- Destructor
@@ -89,7 +93,12 @@ class OFstream
     // Private data
 
         fileName pathname_;
+        LIFOStack<word> blockNamesStack_;
 
+        //- String stream for temporary data written by ADIOS at destruction
+        OStringStream* tmpOssPtr_;
+
+        label boundaryCounter_{0};
 
 public:
 
@@ -99,20 +108,36 @@ public:
 
     // Constructors
 
-        //- Construct from pathname
+        //- Default construct
         OFstream
         (
             const fileName& pathname,
             ios_base::openmode mode = ios_base::out|ios_base::trunc,
+            IOstreamOption streamOpt = IOstreamOption()
+        );
+
+        //- Construct from pathname
+        OFstream
+        (
+            const fileName& pathname,
+            ios_base::openmode mode,
             streamFormat format = ASCII,
             versionNumber version = currentVersion,
             compressionType compression = UNCOMPRESSED
-        );
+        )
+        :
+            OFstream
+            (
+                pathname,
+                mode,
+                IOstreamOption(format, version, compression)
+            )
+        {}
 
 
     // Destructor
 
-        ~OFstream();
+        virtual ~OFstream();
 
 
     // Member functions
@@ -131,6 +156,19 @@ public:
                 return pathname_;
             }
 
+            //- Return the file name as a path relative to the root case
+            inline string getRelativeFileName() const
+            {
+                return pathname_.caseName("");
+            }
+
+            //- Get block identifier
+            virtual string getBlockId() const;
+
+            inline ostream& getStreamBuffer()
+            {
+                return *ofPtr_;
+            }
 
         // STL stream
 
@@ -145,6 +183,28 @@ public:
 
             //- Print description of IOstream to Ostream
             void print(Ostream&) const;
+
+        // Write
+
+            //- Incrememt the indent level and add a new block with name
+            virtual word incrBlock(const word);
+
+            //- Decrememt the indent level and close the current block
+            virtual void decrBlock();
+
+            //- Write the keyword followed by an appropriate indentation
+            virtual Ostream& writeKeyword(const keyType&);
+
+            virtual void popBlockNamesStack();
+
+            //- Write field with the scalar primitive type
+            virtual Ostream& write(const char*, std::streamsize);
+
+            virtual Ostream& parwrite(std::unique_ptr<uListProxyBase>);
+
+            virtual Ostream& stringStream();
+
+            void writeLocalString(const fileName&, const string&, const label);
 };
 
 

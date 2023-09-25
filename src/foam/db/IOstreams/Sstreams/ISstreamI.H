@@ -40,6 +40,12 @@ inline Foam::ISstream::ISstream
     name_(name),
     is_(is)
 {
+    if (debug)
+    {
+        Pout<< "ISstream construction with name " << name
+            << " and format " << format
+            << endl;
+    }
     if (is_.good())
     {
         setOpened();
