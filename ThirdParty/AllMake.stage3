@@ -235,6 +235,20 @@ else
     echo ""
 fi
 
+# ADIOS2
+if [ -z "$ADIOS2_SYSTEM" ]
+then
+    # ADIOS2 2.9.1
+    #
+    [ ! -z "$WM_THIRD_PARTY_USE_ADIOS2_291" ] && {
+	echo "Building ADIOS2 2.9.1"
+	( rpm_make -p ADIOS2-2.9.1 -s ADIOS2-2.9.1.spec -u https://github.com/ornladios/ADIOS2/archive/v2.9.1.tar.gz )
+    }
+else
+    echo "Using system installed ADIOS2"
+    echo ""
+fi
+
 echo ========================================
 echo Done ThirdParty AllMake: Stage3
 echo ========================================
