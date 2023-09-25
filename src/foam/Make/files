@@ -159,6 +159,26 @@ $(Pstreams)/OPstream.C
 $(Pstreams)/IPread.C
 $(Pstreams)/OPwrite.C
 
+SliceStreams = $(Streams)/SliceStreams
+$(SliceStreams)/sliceWritePrimitives.C
+$(SliceStreams)/sliceReadPrimitives.C
+
+$(SliceStreams)/SliceStreamPaths.C
+$(SliceStreams)/SliceStreamRepo.C
+$(SliceStreams)/SliceStream.C
+$(SliceStreams)/FileSliceStream.C
+$(SliceStreams)/create/OutputFeatures.C
+$(SliceStreams)/create/InputFeatures.C
+$(SliceStreams)/create/SliceWriting.C
+$(SliceStreams)/create/SliceReading.C
+$(SliceStreams)/buffer/SliceBuffer.C
+$(SliceStreams)/fieldDataEntry.C
+$(SliceStreams)/formattingEntry.C
+$(SliceStreams)/fieldTag.C
+$(SliceStreams)/IFCstream.C
+$(SliceStreams)/OFCstream.C
+
+
 dictionary = db/dictionary
 $(dictionary)/dictionary.C
 $(dictionary)/dictionaryIO.C
@@ -464,6 +484,29 @@ $(faceZone)/newFaceZone.C
 pointZone = $(polyMesh)/zones/pointZone
 $(pointZone)/pointZone.C
 $(pointZone)/newPointZone.C
+
+CoherentMesh = $(polyMesh)/CoherentMesh
+$(CoherentMesh)/Offsets.C
+$(CoherentMesh)/sliceMap.C
+$(CoherentMesh)/Slice.C
+$(CoherentMesh)/CoherentMesh.C
+$(CoherentMesh)/SlicePermutation.C
+$(CoherentMesh)/FragmentPermutation.C
+$(CoherentMesh)/sliceMeshHelper.C
+$(CoherentMesh)/ProcessorPatch.C
+$(CoherentMesh)/nonblockConsensus.C
+
+CoherenceComposite = $(CoherentMesh)/CoherenceComposite
+$(CoherenceComposite)/DataComponent.C
+$(CoherenceComposite)/IndexComponent.C
+$(CoherenceComposite)/DataComponentFree.C
+
+CoherenceStrategies = $(CoherenceComposite)/strategies
+$(CoherenceStrategies)/InitStrategies.C
+$(CoherenceStrategies)/OffsetStrategies.C
+
+CoherenceDecorators = $(CoherenceComposite)/decorators
+$(CoherenceDecorators)/SliceDecorator.C
 
 $(polyMesh)/polyMesh.C
 $(polyMesh)/polyMeshFromShapeMesh.C
