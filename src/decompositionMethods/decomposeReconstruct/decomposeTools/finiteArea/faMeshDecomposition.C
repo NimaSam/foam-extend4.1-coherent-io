@@ -212,7 +212,7 @@ void faMeshDecomposition::decomposeMesh(const bool filterEmptyPatches)
 
     // Memory management
     {
-        List<SLList<label> > procFaceList(nProcs());
+        Foam::List<Foam::SLList<Foam::label> > procFaceList(nProcs());
 
         forAll (faceToProc_, faceI)
         {
@@ -397,7 +397,7 @@ void faMeshDecomposition::decomposeMesh(const bool filterEmptyPatches)
 
     // Memory management
     {
-        List<SLList<label> > procEdgeList(nProcs());
+        Foam::List<Foam::SLList<Foam::label> > procEdgeList(nProcs());
 
         forAll(procEdgeList, procI)
         {
@@ -411,12 +411,12 @@ void faMeshDecomposition::decomposeMesh(const bool filterEmptyPatches)
         // Detect inter-processor boundaries
 
         // Neighbour processor for each subdomain
-        List<SLList<label> > interProcBoundaries(nProcs());
+        Foam::List<Foam::SLList<Foam::label> > interProcBoundaries(nProcs());
 
         // Edge labels belonging to each inter-processor boundary
-        List<SLList<SLList<label> > > interProcBEdges(nProcs());
+        Foam::List<Foam::SLList<Foam::SLList<Foam::label> > > interProcBEdges(nProcs());
 
-        List<SLList<label> > procPatchIndex(nProcs());
+        Foam::List<Foam::SLList<Foam::label> > procPatchIndex(nProcs());
 
         forAll (neighbour, edgeI)
         {
@@ -429,10 +429,10 @@ void faMeshDecomposition::decomposeMesh(const bool filterEmptyPatches)
                 label ownerProc = faceToProc_[owner[edgeI]];
                 label neighbourProc = faceToProc_[neighbour[edgeI]];
 
-                SLList<label>::iterator curInterProcBdrsOwnIter =
+                Foam::SLList<Foam::label>::iterator curInterProcBdrsOwnIter =
                     interProcBoundaries[ownerProc].begin();
 
-                SLList<SLList<label> >::iterator curInterProcBEdgesOwnIter =
+                Foam::SLList<Foam::SLList<Foam::label> >::iterator curInterProcBEdgesOwnIter =
                     interProcBEdges[ownerProc].begin();
 
                 bool interProcBouFound = false;
@@ -456,10 +456,10 @@ void faMeshDecomposition::decomposeMesh(const bool filterEmptyPatches)
 
                         curInterProcBEdgesOwnIter().append(edgeI);
 
-                        SLList<label>::iterator curInterProcBdrsNeiIter =
+                        Foam::SLList<Foam::label>::iterator curInterProcBdrsNeiIter =
                             interProcBoundaries[neighbourProc].begin();
 
-                        SLList<SLList<label> >::iterator
+                        Foam::SLList<Foam::SLList<Foam::label> >::iterator
                             curInterProcBEdgesNeiIter =
                             interProcBEdges[neighbourProc].begin();
 
@@ -512,13 +512,13 @@ void faMeshDecomposition::decomposeMesh(const bool filterEmptyPatches)
 
                     // owner
                     interProcBoundaries[ownerProc].append(neighbourProc);
-                    interProcBEdges[ownerProc].append(SLList<label>(edgeI));
+                    interProcBEdges[ownerProc].append(Foam::SLList<Foam::label>(edgeI));
 
                     // neighbour
                     interProcBoundaries[neighbourProc].append(ownerProc);
                     interProcBEdges[neighbourProc].append
                         (
-                            SLList<label>(edgeI)
+                            Foam::SLList<Foam::label>(edgeI)
                         );
                 }
             }
@@ -619,10 +619,10 @@ void faMeshDecomposition::decomposeMesh(const bool filterEmptyPatches)
                         label neighbourProc =
                             faceToProc_[secondEdgeFaces[edgeI]];
 
-                        SLList<label>::iterator curInterProcBdrsOwnIter =
+                        Foam::SLList<Foam::label>::iterator curInterProcBdrsOwnIter =
                             interProcBoundaries[ownerProc].begin();
 
-                        SLList<SLList<label> >::iterator
+                        Foam::SLList<Foam::SLList<Foam::label> >::iterator
                             curInterProcBEdgesOwnIter =
                             interProcBEdges[ownerProc].begin();
 
@@ -650,10 +650,10 @@ void faMeshDecomposition::decomposeMesh(const bool filterEmptyPatches)
                                 curInterProcBEdgesOwnIter().append
                                     (patchStart + edgeI);
 
-                                SLList<label>::iterator curInterProcBdrsNeiIter
+                                Foam::SLList<Foam::label>::iterator curInterProcBdrsNeiIter
                                    = interProcBoundaries[neighbourProc].begin();
 
-                                SLList<SLList<label> >::iterator
+                                Foam::SLList<Foam::SLList<Foam::label> >::iterator
                                     curInterProcBEdgesNeiIter =
                                     interProcBEdges[neighbourProc].begin();
 
@@ -716,7 +716,7 @@ void faMeshDecomposition::decomposeMesh(const bool filterEmptyPatches)
                             interProcBoundaries[ownerProc]
                                 .append(neighbourProc);
                             interProcBEdges[ownerProc]
-                                .append(SLList<label>(patchStart + edgeI));
+                                .append(Foam::SLList<Foam::label>(patchStart + edgeI));
 
                             // neighbour
                             interProcBoundaries[neighbourProc]
@@ -724,7 +724,7 @@ void faMeshDecomposition::decomposeMesh(const bool filterEmptyPatches)
                             interProcBEdges[neighbourProc]
                                .append
                                 (
-                                    SLList<label>
+                                    Foam::SLList<Foam::label>
                                     (
                                         patchStart
                                       + cycOffset
@@ -780,7 +780,7 @@ void faMeshDecomposition::decomposeMesh(const bool filterEmptyPatches)
         forAll (procEdgeList, procI)
         {
             // Get internal and regular boundary processor faces
-            SLList<label>& curProcEdges = procEdgeList[procI];
+            Foam::SLList<Foam::label>& curProcEdges = procEdgeList[procI];
 
             // Get reference to processor edge addressing
             labelList& curProcEdgeAddressing = procEdgeAddressing_[procI];
@@ -799,7 +799,7 @@ void faMeshDecomposition::decomposeMesh(const bool filterEmptyPatches)
 
             for
             (
-                SLList<SLList<label> >::iterator curInterProcBEdgesIter =
+                Foam::SLList<Foam::SLList<Foam::label> >::iterator curInterProcBEdgesIter =
                     interProcBEdges[procI].begin();
                 curInterProcBEdgesIter != interProcBEdges[procI].end();
                 ++curInterProcBEdgesIter
@@ -823,7 +823,7 @@ void faMeshDecomposition::decomposeMesh(const bool filterEmptyPatches)
             // turning index works properly.
             for
             (
-                SLList<label>::iterator curProcEdgeIter = curProcEdges.begin();
+                Foam::SLList<Foam::label>::iterator curProcEdgeIter = curProcEdges.begin();
                 curProcEdgeIter != curProcEdges.end();
                 ++curProcEdgeIter
             )
@@ -853,10 +853,10 @@ void faMeshDecomposition::decomposeMesh(const bool filterEmptyPatches)
 
             label nProcPatches = 0;
 
-            SLList<label>::iterator curInterProcBdrsIter =
+            Foam::SLList<Foam::label>::iterator curInterProcBdrsIter =
                 interProcBoundaries[procI].begin();
 
-            SLList<SLList<label> >::iterator curInterProcBEdgesIter =
+            Foam::SLList<Foam::SLList<Foam::label> >::iterator curInterProcBEdgesIter =
                 interProcBEdges[procI].begin();
 
             for
@@ -882,7 +882,7 @@ void faMeshDecomposition::decomposeMesh(const bool filterEmptyPatches)
 
                 for
                 (
-                    SLList<label>::iterator curEdgesIter =
+                    Foam::SLList<Foam::label>::iterator curEdgesIter =
                         curInterProcBEdgesIter().begin();
                     curEdgesIter != curInterProcBEdgesIter().end();
                     ++curEdgesIter
