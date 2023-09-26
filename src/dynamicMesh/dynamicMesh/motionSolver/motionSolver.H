@@ -39,7 +39,8 @@ SourceFiles
 #include "foamTime.H"
 #include "IOdictionary.H"
 #include "pointField.H"
-#include "twoDPointCorrector.H"
+// TODO: could not be found
+#include "../../../meshTools/twoDPointCorrector/twoDPointCorrector.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
