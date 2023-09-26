@@ -253,7 +253,7 @@ int main(int argc, char *argv[])
     // Set edgeLabels for each faPatch
     for(label pI=0; pI<(faPatches.size()-1); pI++)
     {
-        SLList<label> tmpList;
+        Foam::SLList<label> tmpList;
 
         forAll (bndEdgeFaPatchIDs, eI)
         {
@@ -267,7 +267,7 @@ int main(int argc, char *argv[])
     }
 
     // Check for undefined edges
-    SLList<label> tmpList;
+    Foam::SLList<label> tmpList;
 
     forAll (bndEdgeFaPatchIDs, eI)
     {
@@ -287,7 +287,7 @@ int main(int argc, char *argv[])
     }
 
     // Add good patches to faMesh
-    SLList<faPatch*> faPatchLst;
+    Foam::SLList<faPatch*> faPatchLst;
 
     for(label pI = 0; pI < faPatches.size(); pI++)
     {

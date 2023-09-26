@@ -66,11 +66,11 @@ label nPoints = 0;
 label nFaces = 0;
 label nCells = 0;
 
-SLList<label> fieldID;
-SLList<label> zoneID;
-SLList<label> nEntriesPerObject;
-SLList<label> firstID;
-SLList<label> lastID;
+Foam::SLList<label> fieldID;
+Foam::SLList<label> zoneID;
+Foam::SLList<label> nEntriesPerObject;
+Foam::SLList<label> firstID;
+Foam::SLList<label> lastID;
 
 SLPtrList<FieldField<Field, scalar> > zoneData;
 
@@ -491,7 +491,7 @@ int main(int argc, char *argv[])
 
     for
     (
-        SLList<label>::const_iterator fieldIDIter = fieldID.begin();
+        Foam::SLList<label>::const_iterator fieldIDIter = fieldID.begin();
         fieldIDIter != fieldID.end();
         ++fieldIDIter
     )

@@ -51,9 +51,9 @@ void starMesh::createCoupleMatches()
     );
 
     // Store newly created faces for each cell
-    Map<SLList<face> > cellAddedFaces(cellMapSize);
+    Map<Foam::SLList<face> > cellAddedFaces(cellMapSize);
 
-    Map<SLList<label> > cellRemovedFaces(cellMapSize);
+    Map<Foam::SLList<label> > cellRemovedFaces(cellMapSize);
 
     // In order to remove often allocation, remember the number of live points.
     // If you run out of space in point creation, increase it by the number of
@@ -115,7 +115,7 @@ void starMesh::createCoupleMatches()
         {
             // Master face is replaced by a set of slave faces
 
-            Map<SLList<label> >::iterator crfIter =
+            Map<Foam::SLList<label> >::iterator crfIter =
                 cellRemovedFaces.find(fp.masterCell());
 
             if (crfIter == cellRemovedFaces.end())
@@ -123,7 +123,7 @@ void starMesh::createCoupleMatches()
                 cellRemovedFaces.insert
                 (
                     fp.masterCell(),
-                    SLList<label>(fp.masterFace())
+                    Foam::SLList<label>(fp.masterFace())
                 );
             }
             else
@@ -131,14 +131,14 @@ void starMesh::createCoupleMatches()
                 crfIter().append(fp.masterFace());
             }
 
-            Map<SLList<face> >::iterator cafIter =
+            Map<Foam::SLList<face> >::iterator cafIter =
                 cellAddedFaces.find(fp.masterCell());
             if (cafIter == cellAddedFaces.end())
             {
                 cellAddedFaces.insert
                 (
                     fp.masterCell(),
-                    SLList<face>(slaveFace.reverseFace())
+                    Foam::SLList<face>(slaveFace.reverseFace())
                 );
             }
             else
@@ -151,15 +151,15 @@ void starMesh::createCoupleMatches()
             // Create cut faces, which replace both master and slave faces
 
             // Store newly created points
-            SLList<point> coupleFacePoints;
+            Foam::SLList<point> coupleFacePoints;
 
             // Master data
             edgeList masterEdges = masterFace.edges();
-            List<SLList<label> > masterEdgePoints(masterEdges.size());
+            List<Foam::SLList<label> > masterEdgePoints(masterEdges.size());
 
             // Slave data
             edgeList slaveEdges = slaveFace.edges();
-            List<SLList<label> > slaveEdgePoints(slaveEdges.size());
+            List<Foam::SLList<label> > slaveEdgePoints(slaveEdges.size());
 
             // Find common plane
             vector n = masterFace.normal(points_);
@@ -480,7 +480,7 @@ void starMesh::createCoupleMatches()
 
             for
             (
-                SLList<point>::iterator coupleFacePointsIter =
+                Foam::SLList<point>::iterator coupleFacePointsIter =
                     coupleFacePoints.begin();
                 coupleFacePointsIter != coupleFacePoints.end();
                 ++coupleFacePointsIter
@@ -523,7 +523,7 @@ void starMesh::createCoupleMatches()
                 nTmpMasterLabels++;
 
                 // get reference to added points of current edge
-                const SLList<label>& curMEdgePoints =
+                const Foam::SLList<label>& curMEdgePoints =
                     masterEdgePoints[masterEdgeI];
 
                 // create a markup list of points that have been used
@@ -554,7 +554,7 @@ void starMesh::createCoupleMatches()
 
                     for
                     (
-                        SLList<label>::const_iterator curMEdgePointsIter =
+                        Foam::SLList<label>::const_iterator curMEdgePointsIter =
                             curMEdgePoints.begin();
                         curMEdgePointsIter != curMEdgePoints.end();
                         ++curMEdgePointsIter
@@ -717,7 +717,7 @@ void starMesh::createCoupleMatches()
                 nTmpSlaveLabels++;
 
                 // get reference to added points of current edge
-                const SLList<label>& curSEdgePoints =
+                const Foam::SLList<label>& curSEdgePoints =
                     slaveEdgePoints[slaveEdgeI];
 
                 // create a markup list of points that have been used
@@ -748,7 +748,7 @@ void starMesh::createCoupleMatches()
 
                     for
                     (
-                        SLList<label>::const_iterator curSEdgePointsIter =
+                        Foam::SLList<label>::const_iterator curSEdgePointsIter =
                             curSEdgePoints.begin();
                         curSEdgePointsIter != curSEdgePoints.end();
                         ++curSEdgePointsIter
@@ -1049,7 +1049,7 @@ void starMesh::createCoupleMatches()
 
                 do
                 {
-                    SLList<edge> edgesToConsider;
+                    Foam::SLList<edge> edgesToConsider;
 
                     // collect master edges
                     forAll (newMasterEdges, edgeI)
@@ -1139,7 +1139,7 @@ void starMesh::createCoupleMatches()
 
                     for
                     (
-                        SLList<edge>::iterator etcIter =
+                        Foam::SLList<edge>::iterator etcIter =
                             edgesToConsider.begin();
                         etcIter != edgesToConsider.end();
                         ++etcIter
@@ -1354,7 +1354,7 @@ void starMesh::createCoupleMatches()
             // Add the new face to both master and slave
 
             // Master face is replaced by a set of slave faces
-            Map<SLList<label> >::iterator crfMasterIter =
+            Map<Foam::SLList<label> >::iterator crfMasterIter =
                 cellRemovedFaces.find(fp.masterCell());
 
             if (crfMasterIter == cellRemovedFaces.end())
@@ -1362,7 +1362,7 @@ void starMesh::createCoupleMatches()
                 cellRemovedFaces.insert
                 (
                     fp.masterCell(),
-                    SLList<label>(fp.masterFace())
+                    Foam::SLList<label>(fp.masterFace())
                 );
             }
             else
@@ -1370,7 +1370,7 @@ void starMesh::createCoupleMatches()
                 crfMasterIter().append(fp.masterFace());
             }
 
-            Map<SLList<label> >::iterator crfSlaveIter =
+            Map<Foam::SLList<label> >::iterator crfSlaveIter =
                 cellRemovedFaces.find(fp.slaveCell());
 
             if (crfSlaveIter == cellRemovedFaces.end())
@@ -1378,7 +1378,7 @@ void starMesh::createCoupleMatches()
                 cellRemovedFaces.insert
                 (
                     fp.slaveCell(),
-                    SLList<label>(fp.slaveFace())
+                    Foam::SLList<label>(fp.slaveFace())
                 );
             }
             else
@@ -1386,14 +1386,14 @@ void starMesh::createCoupleMatches()
                 crfSlaveIter().append(fp.slaveFace());
             }
 
-            Map<SLList<face> >::iterator cafMasterIter =
+            Map<Foam::SLList<face> >::iterator cafMasterIter =
                 cellAddedFaces.find(fp.masterCell());
             if (cafMasterIter == cellAddedFaces.end())
             {
                 cellAddedFaces.insert
                 (
                     fp.masterCell(),
-                    SLList<face>(intersectedFace)
+                    Foam::SLList<face>(intersectedFace)
                 );
             }
             else
@@ -1401,14 +1401,14 @@ void starMesh::createCoupleMatches()
                 cafMasterIter().append(intersectedFace);
             }
 
-            Map<SLList<face> >::iterator cafSlaveIter =
+            Map<Foam::SLList<face> >::iterator cafSlaveIter =
                 cellAddedFaces.find(fp.slaveCell());
             if (cafSlaveIter == cellAddedFaces.end())
             {
                 cellAddedFaces.insert
                 (
                     fp.slaveCell(),
-                    SLList<face>(intersectedFace.reverseFace())
+                    Foam::SLList<face>(intersectedFace.reverseFace())
                 );
             }
             else
@@ -1427,11 +1427,11 @@ void starMesh::createCoupleMatches()
         {
             const label curCell = crfToc[cellI];
 
-            const SLList<label>& curRemovedFaces = cellRemovedFaces[curCell];
+            const Foam::SLList<label>& curRemovedFaces = cellRemovedFaces[curCell];
 
             for
             (
-                SLList<label>::const_iterator curRemovedFacesIter =
+                Foam::SLList<label>::const_iterator curRemovedFacesIter =
                     curRemovedFaces.begin();
                 curRemovedFacesIter != curRemovedFaces.end();
                 ++curRemovedFacesIter
@@ -1454,7 +1454,7 @@ void starMesh::createCoupleMatches()
         {
             const label curCell = cafToc[cellI];
 
-            const SLList<face>& curAddedFaces = cellAddedFaces[curCell];
+            const Foam::SLList<face>& curAddedFaces = cellAddedFaces[curCell];
 
             faceList oldFaces = cellFaces_[curCell];
 
@@ -1476,7 +1476,7 @@ void starMesh::createCoupleMatches()
             // add new faces
             for
             (
-                SLList<face>::const_iterator curAddedFacesIter =
+                Foam::SLList<face>::const_iterator curAddedFacesIter =
                     curAddedFaces.begin();
                 curAddedFacesIter != curAddedFaces.end();
                 ++curAddedFacesIter

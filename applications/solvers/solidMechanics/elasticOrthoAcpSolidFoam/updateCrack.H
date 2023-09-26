@@ -44,8 +44,8 @@ nCoupledFacesToBreak = 0;
 
     maxEffTractionFraction = gMax(effTractionFraction);
 
-    SLList<label> facesToBreakList;
-    SLList<scalar> facesToBreakEffTractionFractionList;
+    Foam::SLList<label> facesToBreakList;
+    Foam::SLList<scalar> facesToBreakEffTractionFractionList;
 
     forAll(effTractionFraction, faceI)
     {
@@ -128,8 +128,8 @@ nCoupledFacesToBreak = 0;
 
     // Check coupled (processor) patches
 
-    SLList<label> coupledFacesToBreakList;
-    SLList<scalar> coupledFacesToBreakEffTractionFractionList;
+    Foam::SLList<label> coupledFacesToBreakList;
+    Foam::SLList<scalar> coupledFacesToBreakEffTractionFractionList;
     forAll(mesh.boundary(), patchI)
     {
         if (mesh.boundary()[patchI].coupled())

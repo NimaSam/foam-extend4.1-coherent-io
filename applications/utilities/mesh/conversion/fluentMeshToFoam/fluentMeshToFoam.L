@@ -75,23 +75,23 @@ label nFaces = 0;
 label nCells = 0;
 
 pointField points(0);
-SLList<label> pointGroupZoneID;
-SLList<label> pointGroupStartIndex;
-SLList<label> pointGroupEndIndex;
+Foam::SLList<label> pointGroupZoneID;
+Foam::SLList<label> pointGroupStartIndex;
+Foam::SLList<label> pointGroupEndIndex;
 
 
 faceList faces(0);
 labelList owner(0);
 labelList neighbour(0);
-SLList<label> faceGroupZoneID;
-SLList<label> faceGroupStartIndex;
-SLList<label> faceGroupEndIndex;
+Foam::SLList<label> faceGroupZoneID;
+Foam::SLList<label> faceGroupStartIndex;
+Foam::SLList<label> faceGroupEndIndex;
 
 labelList fluentCellModelID(0);
-SLList<label> cellGroupZoneID;
-SLList<label> cellGroupStartIndex;
-SLList<label> cellGroupEndIndex;
-SLList<label> cellGroupType;
+Foam::SLList<label> cellGroupZoneID;
+Foam::SLList<label> cellGroupStartIndex;
+Foam::SLList<label> cellGroupEndIndex;
+Foam::SLList<label> cellGroupType;
 
 // number of zones adjusted at run-time if necessary
 label maxZoneID = 100;
@@ -1211,10 +1211,10 @@ int main(int argc, char *argv[])
 
     // Make boundary patches
 
-    SLList<label>::iterator faceGroupZoneIDIter = faceGroupZoneID.begin();
-    SLList<label>::iterator faceGroupStartIndexIter =
+    Foam::SLList<label>::iterator faceGroupZoneIDIter = faceGroupZoneID.begin();
+    Foam::SLList<label>::iterator faceGroupStartIndexIter =
         faceGroupStartIndex.begin();
-    SLList<label>::iterator faceGroupEndIndexIter = faceGroupEndIndex.begin();
+    Foam::SLList<label>::iterator faceGroupEndIndexIter = faceGroupEndIndex.begin();
 
     // Note. Not all groups of faces will be boundary patches.
     // Take care on construction
@@ -1245,7 +1245,7 @@ int main(int argc, char *argv[])
 
     for
     (
-        SLList<label>::iterator fgzIDIter = faceGroupZoneID.begin();
+        Foam::SLList<label>::iterator fgzIDIter = faceGroupZoneID.begin();
         fgzIDIter != faceGroupZoneID.end();
         ++fgzIDIter
     )
@@ -1650,9 +1650,9 @@ int main(int argc, char *argv[])
         }
 
         label cnt = 0;
-        SLList<label>::iterator cg = cellGroupZoneID.begin();
-        SLList<label>::iterator start = cellGroupStartIndex.begin();
-        SLList<label>::iterator end = cellGroupEndIndex.begin();
+        Foam::SLList<label>::iterator cg = cellGroupZoneID.begin();
+        Foam::SLList<label>::iterator start = cellGroupStartIndex.begin();
+        Foam::SLList<label>::iterator end = cellGroupEndIndex.begin();
 
         for (; cg != cellGroupZoneID.end(); ++cg, ++start, ++end)
         {
@@ -1773,9 +1773,9 @@ int main(int argc, char *argv[])
         {
             Info<< "Writing cell sets" << endl;
 
-            SLList<label>::iterator cg = cellGroupZoneID.begin();
-            SLList<label>::iterator start = cellGroupStartIndex.begin();
-            SLList<label>::iterator end = cellGroupEndIndex.begin();
+            Foam::SLList<label>::iterator cg = cellGroupZoneID.begin();
+            Foam::SLList<label>::iterator start = cellGroupStartIndex.begin();
+            Foam::SLList<label>::iterator end = cellGroupEndIndex.begin();
 
             // Note: cellGroupXXX are all Fluent indices (starting at 1)
             // so offset before using.

@@ -57,17 +57,17 @@ using namespace Foam;
 #include "SLList.H"
 #include "SLPtrList.H"
 
-SLList<point> slPoints;
-SLList<label> slPointMap;
+Foam::SLList<point> slPoints;
+Foam::SLList<label> slPointMap;
 label maxNodei = 0;
 
 SLPtrList<labelList> slCellLabels;
-SLList<label> slCellMap;
-SLList<label> slCellType;
+Foam::SLList<label> slCellMap;
+Foam::SLList<label> slCellType;
 label maxCelli = 0;
 
-PtrList<SLList<label> > slPatchCells;
-PtrList<SLList<label> > slPatchCellFaces;
+PtrList<Foam::SLList<label> > slPatchCells;
+PtrList<Foam::SLList<label> > slPatchCellFaces;
 
 // Cell types
 Map<word> cellTypes;
@@ -195,7 +195,7 @@ elementType           ^{space}"TYPE"{cspace}
             {
                 if (!slPatchCells(i))
                 {
-                    slPatchCells.set(i, new SLList<label>);
+                    slPatchCells.set(i, new Foam::SLList<label>);
                 }
             }
         }
@@ -208,7 +208,7 @@ elementType           ^{space}"TYPE"{cspace}
             {
                 if (!slPatchCellFaces(i))
                 {
-                    slPatchCellFaces.set(i, new SLList<label>);
+                    slPatchCellFaces.set(i, new Foam::SLList<label>);
                 }
             }
         }
@@ -339,7 +339,7 @@ int main(int argc, char *argv[])
     pointField points(slPoints.size());
 
     label i = 0;
-    forAllConstIter(SLList<point>, slPoints, pointIter)
+    forAllConstIter(Foam::SLList<point>, slPoints, pointIter)
     {
         // Scale points for the given scale factor
         points[i++] = scaleFactor * pointIter();
@@ -349,7 +349,7 @@ int main(int argc, char *argv[])
     labelList pointMap(maxNodei+1);
 
     i = 0;
-    forAllConstIter(SLList<label>, slPointMap, pointMapIter)
+    forAllConstIter(Foam::SLList<label>, slPointMap, pointMapIter)
     {
         pointMap[pointMapIter()] = i++;
     }
@@ -359,7 +359,7 @@ int main(int argc, char *argv[])
     labelList cellMap(maxCelli+1);
 
     i = 0;
-    forAllConstIter(SLList<label>, slCellMap, cellMapIter)
+    forAllConstIter(Foam::SLList<label>, slCellMap, cellMapIter)
     {
         cellMap[cellMapIter()] = i++;
     }
@@ -491,10 +491,10 @@ int main(int argc, char *argv[])
 
     forAll(slPatchCells, patchI)
     {
-        SLList<face> patchFaces;
+        Foam::SLList<face> patchFaces;
 
-        SLList<label>::iterator cellIter(slPatchCells[patchI].begin());
-        SLList<label>::iterator faceIter(slPatchCellFaces[patchI].begin());
+        Foam::SLList<label>::iterator cellIter(slPatchCells[patchI].begin());
+        Foam::SLList<label>::iterator faceIter(slPatchCellFaces[patchI].begin());
 
         for
         (
@@ -664,8 +664,8 @@ int main(int argc, char *argv[])
             // Pick up cells in zone
             DynamicList<label> addr;
 
-            SLList<label>::iterator cellMapIter = slCellMap.begin();
-            SLList<label>::iterator typeIter = slCellType.begin();
+            Foam::SLList<label>::iterator cellMapIter = slCellMap.begin();
+            Foam::SLList<label>::iterator typeIter = slCellType.begin();
 
             for
             (

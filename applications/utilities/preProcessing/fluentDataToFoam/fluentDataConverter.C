@@ -30,10 +30,10 @@ License
 Foam::fluentDataConverter::fluentDataConverter
 (
     const fvMesh& mesh,
-    const SLList<label>& fieldID,
-    const SLList<label>& zoneID,
-    const SLList<label>& firstID,
-    const SLList<label>& lastID,
+    const Foam::SLList<label>& fieldID,
+    const Foam::SLList<label>& zoneID,
+    const Foam::SLList<label>& firstID,
+    const Foam::SLList<label>& lastID,
     const SLPtrList<FieldField<Field, scalar> >& zoneData
 )
 :
@@ -88,10 +88,10 @@ Foam::tmp<Foam::volScalarField> Foam::fluentDataConverter::convertField
     );
     volScalarField& result = tresult();
 
-    SLList<label>::const_iterator fieldIDIter = fieldID_.begin();
-    SLList<label>::const_iterator zoneIDIter = zoneID_.begin();
-    SLList<label>::const_iterator firstIDIter = firstID_.begin();
-    SLList<label>::const_iterator lastIDIter = lastID_.begin();
+    Foam::SLList<label>::const_iterator fieldIDIter = fieldID_.begin();
+    Foam::SLList<label>::const_iterator zoneIDIter = zoneID_.begin();
+    Foam::SLList<label>::const_iterator firstIDIter = firstID_.begin();
+    Foam::SLList<label>::const_iterator lastIDIter = lastID_.begin();
     SLPtrList<FieldField<Field, scalar> >::const_iterator zoneDataIter =
         zoneData_.begin();
 

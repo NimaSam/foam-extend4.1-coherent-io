@@ -1,7 +1,7 @@
 labelList globalFaceZones;
 
 {
-    SLList<label> globalFaceZonesSet;
+    Foam::SLList<label> globalFaceZonesSet;
 
     const faceZoneMesh& faceZones = stressMesh.faceZones();
 

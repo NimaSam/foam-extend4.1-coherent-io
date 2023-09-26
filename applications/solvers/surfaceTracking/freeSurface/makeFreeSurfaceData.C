@@ -763,7 +763,7 @@ void freeSurface::makeFluidIndicator()
         // get cell-cells addressing
         const labelListList& cellCells = mesh().cellCells();
 
-        SLList<label> slList(startCell);
+        Foam::SLList<label> slList(startCell);
 
         while (slList.size())
         {

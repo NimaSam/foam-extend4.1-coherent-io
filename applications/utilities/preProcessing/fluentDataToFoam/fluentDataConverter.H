@@ -61,16 +61,16 @@ class fluentDataConverter
         const wordIOList zoneToPatchName_;
 
         //- Field ID list
-        const SLList<label>& fieldID_;
+        const Foam::SLList<label>& fieldID_;
 
         //- Zone ID list
-        const SLList<label>& zoneID_;
+        const Foam::SLList<label>& zoneID_;
 
         //- Zone start index
-        const SLList<label>& firstID_;
+        const Foam::SLList<label>& firstID_;
 
         //- Zone end index
-        const SLList<label>& lastID_;
+        const Foam::SLList<label>& lastID_;
 
         //- Fluent zone data
         const SLPtrList<FieldField<Field, scalar> >& zoneData_;
@@ -94,10 +94,10 @@ public:
         fluentDataConverter
         (
             const fvMesh& mesh,
-            const SLList<label>& fieldID,
-            const SLList<label>& zoneID,
-            const SLList<label>& firstID,
-            const SLList<label>& lastID,
+            const Foam::SLList<label>& fieldID,
+            const Foam::SLList<label>& zoneID,
+            const Foam::SLList<label>& firstID,
+            const Foam::SLList<label>& lastID,
             const SLPtrList<FieldField<Field, scalar> >& zoneData
         );
 
