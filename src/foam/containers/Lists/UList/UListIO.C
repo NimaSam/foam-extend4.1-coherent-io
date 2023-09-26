@@ -105,6 +105,10 @@ Foam::Ostream& Foam::operator<<(Foam::Ostream& os, const Foam::UList<T>& L)
 
         bool uniform = false;
 
+/****************** TODO port: hacks to circumvent errors in UListIO.C >>>>>>>>>>>>>>>*/
+// ALSO REQUIRES c++17 currently. roll-back required to c++11
+        if constexpr (is_inequality_comparable<T>::value)
+        {
         if (L.size() > 1 && contiguous<T>())
         {
             uniform = true;
@@ -177,6 +181,7 @@ Foam::Ostream& Foam::operator<<(Foam::Ostream& os, const Foam::UList<T>& L)
 
             // Write end delimiter
             os << nl << token::END_LIST << nl;
+        }
         }
     }
     else if (os.format() == IOstream::BINARY)

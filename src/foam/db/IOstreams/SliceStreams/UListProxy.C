@@ -54,6 +54,10 @@ void Foam::UListProxy<T>::writeFirstElement
     const char* data
 ) const
 {
+/****************** TODO port: hacks to circumvent errors in UListIO.C >>>>>>>>>>>>>>>*/
+// ALSO REQUIRES c++17 currently. roll-back required to c++11
+    if constexpr (is_inequality_comparable<T>::value)
+    {
     if (data)
     {
         const T* dataT = reinterpret_cast<const T*>(data);
@@ -64,6 +68,7 @@ void Foam::UListProxy<T>::writeFirstElement
         FatalErrorInFunction
             << "Given data pointer is nullptr."
             << abort(FatalError);
+    }
     }
 }
 
@@ -160,6 +165,10 @@ Foam::UListProxy<T>::determineUniformity() const
     {
         uListProxyBase::uniformity u = uListProxyBase::UNIFORM;
 
+/****************** TODO port: hacks to circumvent errors in UListIO.C >>>>>>>>>>>>>>>*/
+// ALSO REQUIRES c++17 currently. roll-back required to c++11
+        if constexpr (is_inequality_comparable<T>::value)
+        {
         // Skip comparison of the first element with itself
         for (label i = 1; i < nElems; i++)
         {
@@ -168,6 +177,7 @@ Foam::UListProxy<T>::determineUniformity() const
                 u = uListProxyBase::NONUNIFORM;
                 break;
             }
+        }
         }
 
         return u;

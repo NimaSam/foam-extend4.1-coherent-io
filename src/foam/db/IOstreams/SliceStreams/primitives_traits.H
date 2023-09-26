@@ -108,6 +108,25 @@ struct is_vectorspace
     std::true_type
 {};
 
+/****************** TODO port: hacks to circumvent errors in UListIO.C >>>>>>>>>>>>>>>*/
+
+// IS_INEQUALITY_COMPARABLE
+// primary template
+template<typename T, typename = Void_T<>>
+struct is_inequality_comparable : std::false_type {};
+
+//partial specialization, maybe SFINAE'd away
+template<typename T>
+struct is_inequality_comparable
+<
+    T,
+    Void_T<decltype(std::declval<T>() != std::declval<T>())>
+>
+:
+    std::true_type
+{};
+
+/*<<<<<<<<<<<<<<<<<<<<< TODO port: hacks to circumvent errors in UListIO.C *************/
 
 // TODO: This should probably go somewhere else. Toward VectorSpace ecosystem?
 template<typename T>
