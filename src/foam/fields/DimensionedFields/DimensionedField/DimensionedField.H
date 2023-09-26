@@ -48,8 +48,6 @@ SourceFiles
 namespace Foam
 {
 
-TemplateName(DebugIODimensionedField);
-
 // Forward declaration of friend functions and operators
 
 template<class Type, class GeoMesh> class DimensionedField;
@@ -74,7 +72,6 @@ template<class Type, class GeoMesh> Ostream& operator<<
 template<class Type, class GeoMesh>
 class DimensionedField
 :
-    public DebugIODimensionedFieldName,
     public regIOobject,
     public Field<Type>
 {

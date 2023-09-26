@@ -58,14 +58,6 @@ Foam::GeometricField<Type, PatchField, GeoMesh>::readField
     const dictionary& fieldDict
 )
 {
-    if (debug)
-    {
-        Info<< "Foam::GeometricField<Type, PatchField, GeoMesh>"
-            << "::readField(const dictionary& fieldDict)"
-            << "\n dict =\n" << fieldDict << nl
-            << endl;
-    }
-
     DimensionedField<Type, GeoMesh>::readField(fieldDict, "internalField");
 
     tmp<GeometricBoundaryField> tboundaryField
@@ -104,13 +96,6 @@ Foam::tmp
 >
 Foam::GeometricField<Type, PatchField, GeoMesh>::readField(Istream& is)
 {
-    if (debug)
-    {
-        Info<< "Foam::GeometricField<Type, PatchField, GeoMesh>"
-            << "::readField(Istream& is) with stream format " << is.format()
-            << endl;
-    }
-
     if (is.version() < 2.0)
     {
         FatalIOErrorIn

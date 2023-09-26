@@ -614,16 +614,12 @@ $(meshTools)/meshTools.C
 $(meshTools)/matchPoints.C
 $(meshTools)/mergePoints.C
 
-fields/DimensionedFields/DimensionedField/DebugIODimensionedField.C
 
 fields/UniformDimensionedFields/uniformDimensionedFields.C
 fields/cloud/cloud.C
 fields/cloudDistribute/cloudDistribute.C
 
 Fields = fields/Fields
-
-$(Fields)/Field/DebugIOField.C
-
 $(Fields)/labelField/labelField.C
 $(Fields)/scalarField/scalarField.C
 $(Fields)/vectorField/vectorField.C
