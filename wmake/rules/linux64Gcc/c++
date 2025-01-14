@@ -6,7 +6,8 @@ c++WARN     = -Wall -Wextra -Wno-unused-parameter -Wold-style-cast -Wnon-virtual
 c++LESSWARN = -Wno-old-style-cast -Wno-unused-local-typedefs -Wno-array-bounds
 
 # TODO port: return to c++11 again
-CC          = g++ -std=c++17 -m64
+#CC          = g++ -std=c++17 -m64
+CC          = g++ -std=c++11
 
 include $(RULES)/c++$(WM_COMPILE_OPTION)
 
